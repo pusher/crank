@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"syscall"
 )
 
 type Process struct {
@@ -12,6 +13,7 @@ type Process struct {
 	args         []string
 	fd           *os.File
 	exitHandlers []func()
+	_sendSignal  chan syscall.Signal
 	outw         *os.File
 	inr          *os.File
 }
@@ -22,6 +24,7 @@ func NewProcess(cmd string, args []string, fd *os.File) *Process {
 		args:         args,
 		fd:           fd,
 		exitHandlers: make([]func(), 0),
+		_sendSignal:  make(chan syscall.Signal),
 	}
 }
 
@@ -44,6 +47,7 @@ func (p *Process) Start() error {
 
 	// Inherit the environment with which crank was run
 	command.Env = os.Environ()
+	command.Env = append(command.Env, "LISTEN_FDS=1")
 
 	// Pass file descriptors to the process
 	command.ExtraFiles = append(command.ExtraFiles, p.fd) // 3: accept socket
@@ -80,11 +84,15 @@ func (p *Process) Start() error {
 
 	// Main run loop for process
 	go func() {
-		select {
-		case <-_onexit:
-			log.Print("[process] Process exited")
-			for _, f := range p.exitHandlers {
-				f()
+		for {
+			select {
+			case <-_onexit:
+				log.Print("[process] Process exited")
+				for _, f := range p.exitHandlers {
+					f()
+				}
+			case sig := <-p._sendSignal:
+				command.Process.Signal(sig)
 			}
 		}
 	}()
@@ -93,6 +101,18 @@ func (p *Process) Start() error {
 }
 
 // Register a function to be called when the process exists
-func (p *Process) onExit(f func()) {
+func (p *Process) OnExit(f func()) {
 	p.exitHandlers = append(p.exitHandlers, f)
+}
+
+func (p *Process) SendHUP() {
+	p._sendSignal <- syscall.SIGHUP
+}
+
+func (p *Process) SendTerm() {
+	p._sendSignal <- syscall.SIGTERM
+}
+
+func (p *Process) SendKill() {
+	p._sendSignal <- syscall.SIGKILL
 }

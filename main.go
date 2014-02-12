@@ -3,7 +3,49 @@ package main
 import (
 	"flag"
 	"log"
+	"os"
+	"time"
 )
+
+func startProcess(cmd string, args []string, fd *os.File) {
+	stopped := false
+
+	proc := NewProcess(cmd, args, fd)
+	proc.OnExit(func() {
+		stopped = true
+		log.Print("Process exited - WHOOT")
+		go startProcess(cmd, args, fd)
+	})
+	proc.Start()
+
+	<-time.After(2 * time.Second)
+	if stopped {
+		return
+	}
+	log.Print("Sending HUP")
+	proc.SendHUP()
+
+	<-time.After(2 * time.Second)
+	if stopped {
+		return
+	}
+	log.Print("Sending 1st TERM")
+	proc.SendTerm()
+
+	<-time.After(2 * time.Second)
+	if stopped {
+		return
+	}
+	log.Print("Sending 2nd TERM")
+	proc.SendTerm()
+
+	<-time.After(2 * time.Second)
+	if stopped {
+		return
+	}
+	log.Print("Sending KILL")
+	proc.SendKill()
+}
 
 func main() {
 	var addr = flag.String("addr", "", "external address to bind (e.g. ':80')")
@@ -23,11 +65,7 @@ func main() {
 	external := NewExternal(*addr)
 	log.Print(external)
 
-	proc := NewProcess(cmd, args, external.fd)
-	proc.onExit(func() {
-		log.Print("Process exited - WHOOT")
-	})
-	proc.Start()
+	go startProcess(cmd, args, external.fd)
 
 	ExitOnSignal()
 }
