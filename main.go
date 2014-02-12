@@ -28,4 +28,6 @@ func main() {
 		log.Print("Process exited - WHOOT")
 	})
 	proc.Start()
+
+	ExitOnSignal()
 }
