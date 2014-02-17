@@ -9,20 +9,16 @@ import (
 )
 
 type Process struct {
-	cmd          string
-	args         []string
-	fd           *os.File
+	proto        *Prototype
 	exitHandlers []func()
 	_sendSignal  chan syscall.Signal
 	outw         *os.File
 	inr          *os.File
 }
 
-func NewProcess(cmd string, args []string, fd *os.File) *Process {
+func NewProcess(proto *Prototype) *Process {
 	return &Process{
-		cmd:          cmd,
-		args:         args,
-		fd:           fd,
+		proto:        proto,
 		exitHandlers: make([]func(), 0),
 		_sendSignal:  make(chan syscall.Signal),
 	}
@@ -43,16 +39,16 @@ func (p *Process) Start() error {
 		return err
 	}
 
-	command := exec.Command(p.cmd, p.args...)
+	command := exec.Command(p.proto.cmd, p.proto.args...)
 
 	// Inherit the environment with which crank was run
 	command.Env = os.Environ()
 	command.Env = append(command.Env, "LISTEN_FDS=1")
 
 	// Pass file descriptors to the process
-	command.ExtraFiles = append(command.ExtraFiles, p.fd) // 3: accept socket
-	command.ExtraFiles = append(command.ExtraFiles, outr) // 4: client recv pipe
-	command.ExtraFiles = append(command.ExtraFiles, inw)  // 5: client send pipe
+	command.ExtraFiles = append(command.ExtraFiles, p.proto.fd) // 3: accept socket
+	command.ExtraFiles = append(command.ExtraFiles, outr)       // 4: client recv pipe
+	command.ExtraFiles = append(command.ExtraFiles, inw)        // 5: client send pipe
 
 	// TODO: Temporarily forward stdout & stderr
 	stdout, _ := command.StdoutPipe()
