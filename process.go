@@ -6,25 +6,29 @@ import (
 	"os"
 	"os/exec"
 	"syscall"
+	"time"
 )
 
 type Process struct {
+	*EventLoop
 	proto        *Prototype
 	exitHandlers []func()
 	_sendSignal  chan syscall.Signal
 	outw         *os.File
 	inr          *os.File
+	command      *exec.Cmd
 }
 
 func NewProcess(proto *Prototype) *Process {
 	return &Process{
+		EventLoop:    NewEventLoop(),
 		proto:        proto,
 		exitHandlers: make([]func(), 0),
 		_sendSignal:  make(chan syscall.Signal),
 	}
 }
 
-func (p *Process) Start() error {
+func (p *Process) Run() error {
 	// Pipe for crank -> process
 	outr, outw, err := os.Pipe()
 	if err != nil {
@@ -40,6 +44,7 @@ func (p *Process) Start() error {
 	}
 
 	command := exec.Command(p.proto.cmd, p.proto.args...)
+	p.command = command
 
 	// Inherit the environment with which crank was run
 	command.Env = os.Environ()
@@ -69,31 +74,47 @@ func (p *Process) Start() error {
 	p.outw = outw
 	p.inr = inr
 
-	_onexit := make(chan bool)
-
 	// Goroutine catches process exit
 	go func() {
 		command.Wait()
-		_onexit <- true
 
+		p.NextTick(func() {
+			log.Print("[process] Process exited")
+			for _, f := range p.exitHandlers {
+				f()
+			}
+			p.EventLoop.Stop()
+		})
 	}()
 
 	// Main run loop for process
-	go func() {
-		for {
-			select {
-			case <-_onexit:
-				log.Print("[process] Process exited")
-				for _, f := range p.exitHandlers {
-					f()
-				}
-			case sig := <-p._sendSignal:
-				command.Process.Signal(sig)
-			}
-		}
-	}()
+	p.EventLoop.Run()
 
 	return nil
+}
+
+// StopAccepting send a SIGHUP signal to the process
+func (p *Process) StopAccepting() {
+	p.NextTick(func() {
+		p.sendSignal(syscall.SIGHUP)
+	})
+}
+
+func (p *Process) Accept() {
+	log.Print("[process] WARN: Accept not implemented")
+}
+
+// Stop stops the process gracefully by first sending SIGTERM (indicating that connections should be closed gracefully), then by sending a second SIGTERM (indicating that connections should be closed forcibly), then finally by sending a SIGKILL
+func (p *Process) Stop() {
+	p.NextTick(func() {
+		p.sendSignal(syscall.SIGTERM)
+	})
+	p.AddTimer(1*time.Second, func() {
+		p.sendSignal(syscall.SIGTERM)
+	})
+	p.AddTimer(2*time.Second, func() {
+		p.sendSignal(syscall.SIGKILL)
+	})
 }
 
 // Register a function to be called when the process exists
@@ -101,14 +122,7 @@ func (p *Process) OnExit(f func()) {
 	p.exitHandlers = append(p.exitHandlers, f)
 }
 
-func (p *Process) SendHUP() {
-	p._sendSignal <- syscall.SIGHUP
-}
-
-func (p *Process) SendTerm() {
-	p._sendSignal <- syscall.SIGTERM
-}
-
-func (p *Process) SendKill() {
-	p._sendSignal <- syscall.SIGKILL
+func (p *Process) sendSignal(sig syscall.Signal) {
+	log.Print("[process] Sending signal: ", sig)
+	p.command.Process.Signal(sig)
 }

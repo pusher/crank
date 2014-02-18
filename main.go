@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"log"
+	"syscall"
 )
 
 
@@ -26,8 +27,13 @@ func main() {
 
 	prototype := NewPrototype(cmd, args, external.fd)
 
-	group := NewGroup(prototype, 4)
-	go group.Run()
+	manager := NewManager(prototype, 2)
+	go manager.Run()
+
+	// Restart processes on SIGHUP
+	go OnSignalLoop(func() {
+		manager.Restart()
+	}, syscall.SIGHUP)
 
 	ExitOnSignal()
 }
