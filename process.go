@@ -76,10 +76,28 @@ func (p *Process) Run() error {
 
 	// Goroutine catches process exit
 	go func() {
-		command.Wait()
+		if err := command.Wait(); err == nil {
+			log.Printf("[process] Exited cleanly")
+		} else {
+			if exiterr, ok := err.(*exec.ExitError); ok {
+				// The program has exited with an exit code != 0
+				if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
+					// Prints the cause of exit - either exit status or signal should be
+					// != -1 (-1 means not exited or not signaled). See
+					// http://golang.org/pkg/syscall/#WaitStatus
+					log.Printf(
+						"[process] Unclean exit: %v (exit status: %v, signal: %v)",
+						err, status.ExitStatus(), int(status.Signal()),
+					)
+				} else {
+					log.Printf("[process] Unsupported ExitError: %v", err)
+				}
+			} else {
+				log.Printf("[process] Unexpected exit: %v", err)
+			}
+		}
 
 		p.NextTick(func() {
-			log.Print("[process] Process exited")
 			for _, f := range p.exitHandlers {
 				f()
 			}
