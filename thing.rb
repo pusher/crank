@@ -14,43 +14,49 @@ class Server
     @handler_klass, @handler_options = handler_klass, handler_options
     @connections = Set.new
     @onempty_callback = nil
+    @accepting = false
     
     handler_options[:server] = self
-  end
-  
-  def start
-    @server = if ENV["LISTEN_FDS"] && ENV["LISTEN_FDS"].to_i == 1
-      pipe = EM::BiPipe.new(PIPE_READ, PIPE_WRITE)
-      @handler_options[:pipe] = pipe
-      
-      pipe.on_command { |c, args|
-        p [:got_command, c, args]
-        pipe.send_command("hello", "world")
-      }
-      
-      # Accept on the passed file descriptor
-      puts "Binding app to passed file descriptor"
-      EM.attach_server(FD, @handler_klass, @handler_options)
-    else
-      puts "Starting new server on port 8000"
-      EM.start_server('0.0.0.0', 8000, @handler_klass, @handler_options)
+
+    @under_crank = ENV["LISTEN_FDS"] && ENV["LISTEN_FDS"].to_i == 1
+
+    if @under_crank
+      @pipe = EM::BiPipe.new(PIPE_READ, PIPE_WRITE)
+      @pipe.on_command(&method(:pipe_command))
     end
   end
   
   def conn_add(c)
     @connections.add(c)
-    report
   end
   
   def conn_rem(c)
     @connections.delete(c)
-    report
     @onempty_callback.call if @onempty_callback
   end
   
+  def start_accepting
+    return if @accepting
+
+    if @under_crank
+      puts "Binding app to passed file descriptor"
+      @server = EM.attach_server(FD, @handler_klass, @handler_options.merge({
+        pipe: @pipe
+      }))
+      @pipe.send_command("NOW_ACCEPTING")
+    else
+      puts "Starting new server on port 8000"
+      EM.start_server('0.0.0.0', 8000, @handler_klass, @handler_options)
+    end
+    @accepting = true
+  end
+
   def stop_accepting(&onempty)
-    report
-    EM.stop_server(@server) if @server
+    return unless @server && @accepting
+
+    EM.stop_server(@server)
+    @accepting = false
+    @server = nil
     register_onempty(onempty) if onempty
   end
   
@@ -65,11 +71,21 @@ class Server
   end
   
   def report
-    puts "Connections open: #{@connections.size}"
+    "Connections open: #{@connections.size}"
   end
   
   private
   
+  def pipe_command(command, args)
+    puts "Received pipe command #{command}, args: #{args}"
+    case command
+    when "START_ACCEPTING"
+      start_accepting
+    else
+      puts "Unknown pipe command #{command}"
+    end
+  end
+
   def register_onempty(blk)
     @connections.empty? ? blk.call : @onempty_callback = blk
   end
@@ -116,8 +132,8 @@ class EM::BiPipe
   end
 
   def initialize(r, w)
-    @writer = EM.attach(w)
-    @reader = EM.attach(r, PipeHandler, self)
+    @writer = EM.attach(IO.for_fd(w))
+    @reader = EM.attach(IO.for_fd(r), PipeHandler, self)
   end
 
   def command(c, args)
@@ -133,10 +149,10 @@ end
 
 EM.run do
   server = Server.new(AppHandler, {})
-  server.start
+  # server.start_accepting
   
   Signal.trap("HUP") do
-    puts "HUP: Stop accepting"
+    puts "HUP: Stop accepting (#{server.report})"
     server.stop_accepting
   end
   
@@ -144,14 +160,13 @@ EM.run do
   %w{INT TERM}.each do |sig|
     Signal.trap(sig) do
       if try_graceful
-        puts "INT/TERM: Closing connections gracefully"
+        puts "INT/TERM: Closing connections gracefully (#{server.report})"
         server.close_gracefully { puts "Graceful exit"; EM.stop }
         try_graceful = false
       else
-        puts "INT/TERM: Closing connections forcefully"
+        puts "INT/TERM: Closing connections forcefully (#{server.report})"
         server.close_forcefully { puts "Graceful exit"; EM.stop }
       end
     end
   end
-
 end

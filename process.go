@@ -1,46 +1,51 @@
 package main
 
 import (
+	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"log"
 	"os"
 	"os/exec"
+	"sync"
 	"syscall"
 	"time"
 )
 
 type Process struct {
 	*EventLoop
-	proto        *Prototype
-	exitHandlers []func()
-	_sendSignal  chan syscall.Signal
-	outw         *os.File
-	inr          *os.File
-	command      *exec.Cmd
+	proto         *Prototype
+	exitHandlers  []func()
+	_sendSignal   chan syscall.Signal
+	outw          *os.File
+	inr           *os.File
+	command       *exec.Cmd
+	acceptingCond *sync.Cond
+	accepting     bool
 }
 
 func NewProcess(proto *Prototype) *Process {
 	return &Process{
-		EventLoop:    NewEventLoop(),
-		proto:        proto,
-		exitHandlers: make([]func(), 0),
-		_sendSignal:  make(chan syscall.Signal),
+		EventLoop:     NewEventLoop(),
+		proto:         proto,
+		exitHandlers:  make([]func(), 0),
+		_sendSignal:   make(chan syscall.Signal),
+		acceptingCond: sync.NewCond(new(sync.RWMutex)),
 	}
 }
 
-func (p *Process) Run() error {
+func (p *Process) Start() {
 	// Pipe for crank -> process
 	outr, outw, err := os.Pipe()
 	if err != nil {
 		log.Print("Error creating pipe", err)
-		return err
 	}
 
 	// Pipe for process -> crank
 	inr, inw, err := os.Pipe()
 	if err != nil {
 		log.Print("Error creating pipe", err)
-		return err
 	}
 
 	command := exec.Command(p.proto.cmd, p.proto.args...)
@@ -64,7 +69,6 @@ func (p *Process) Run() error {
 	// Start process
 	if err = command.Start(); err != nil {
 		log.Fatal("Process start failed: ", err)
-		return err
 	}
 	log.Print("[process] Process started")
 
@@ -73,6 +77,38 @@ func (p *Process) Run() error {
 	inw.Close()
 	p.outw = outw
 	p.inr = inr
+
+	// Read on pipe from child, and process commands
+	go func() {
+		data := make([]byte, 1024)
+		var err error
+		var n int
+		var command string
+		for {
+			n, err = inr.Read(data)
+			if err != nil || n == 0 {
+				log.Print("[process] Error reading on pipe: ", err)
+				return
+			}
+
+			if err, command, _ = decodePipeCommand(data[0:n]); err != nil {
+				log.Printf("[process] Invalid data recd on pipe: ", err)
+				return
+			}
+
+			log.Print("[process] Received command on pipe: ", command)
+
+			switch command {
+			case "NOW_ACCEPTING":
+				p.acceptingCond.L.Lock()
+				p.accepting = true
+				p.acceptingCond.L.Unlock()
+				p.acceptingCond.Broadcast()
+			default:
+				log.Print("[process] Unknown command received: ", command)
+			}
+		}
+	}()
 
 	// Goroutine catches process exit
 	go func() {
@@ -106,9 +142,7 @@ func (p *Process) Run() error {
 	}()
 
 	// Main run loop for process
-	p.EventLoop.Run()
-
-	return nil
+	go p.EventLoop.Run()
 }
 
 // StopAccepting send a SIGHUP signal to the process
@@ -118,8 +152,20 @@ func (p *Process) StopAccepting() {
 	})
 }
 
-func (p *Process) Accept() {
-	log.Print("[process] WARN: Accept not implemented")
+// TODO: Do we really want this to be blocking?
+func (p *Process) StartAccepting() {
+	// Request that the process accepts
+	p.NextTick(func() {
+		p.sendPipeCommand("START_ACCEPTING", new(interface{}))
+	})
+
+	// Wait till NOW_ACCEPTING has been received from child
+	// TODO: Astract this logic - it's a mess
+	p.acceptingCond.L.Lock()
+	for !p.accepting {
+		p.acceptingCond.Wait()
+	}
+	p.acceptingCond.L.Unlock()
 }
 
 // Stop stops the process gracefully by first sending SIGTERM (indicating that connections should be closed gracefully), then by sending a second SIGTERM (indicating that connections should be closed forcibly), then finally by sending a SIGKILL
@@ -143,4 +189,36 @@ func (p *Process) OnExit(f func()) {
 func (p *Process) sendSignal(sig syscall.Signal) {
 	log.Print("[process] Sending signal: ", sig)
 	p.command.Process.Signal(sig)
+}
+
+func (p *Process) sendPipeCommand(command string, args interface{}) {
+	log.Printf("[process] Sending command on pipe: %v", command)
+	json := fmt.Sprintf("[\"%v\", {}]", command)
+	if _, err := p.outw.Write([]byte(json)); err != nil {
+		log.Print("Error writing to outw: ", err)
+	}
+}
+
+func decodePipeCommand(data []byte) (err error, command string, args interface{}) {
+	var obj interface{}
+
+	if err = json.Unmarshal(data, &obj); err != nil {
+		return
+	} else {
+		switch arr := obj.(type) {
+		default:
+			err = errors.New("Invalid protocol")
+			return
+		case []interface{}:
+			args = arr[1]
+
+			switch c := arr[0].(type) {
+			case string:
+				command = c
+				return
+			default:
+				return
+			}
+		}
+	}
 }

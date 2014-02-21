@@ -114,7 +114,7 @@ func (self *Group) think() {
 	if self.acceptingSet.Size() < self.targetAccepting && self.notAcceptingSet.Size() > 0 {
 		log.Print(self, "Transitioning a non-accepting process to accepting")
 		p := self.notAcceptingSet.GetRand()
-		p.Accept()
+		p.StartAccepting()
 		self.notAcceptingSet.Rem(p)
 		self.acceptingSet.Add(p)
 	} else if self.acceptingSet.Size() > self.targetAccepting {
@@ -167,5 +167,6 @@ func (self *Group) startProcess() {
 
 		self.scheduleThink()
 	})
-	go proc.Run()
+	proc.Start()
+	proc.StartAccepting()
 }
