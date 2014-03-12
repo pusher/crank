@@ -3,8 +3,6 @@ require 'eventmachine'
 require 'json'
 require 'set'
 
-$uid = rand(100000)
-
 FD = 3
 PIPE_READ = 4
 PIPE_WRITE = 5
@@ -24,6 +22,8 @@ class Server
       @pipe = EM::BiPipe.new(PIPE_READ, PIPE_WRITE)
       @pipe.on_command(&method(:pipe_command))
     end
+
+    @pipe.send_command("STARTED")
   end
   
   def conn_add(c)
@@ -38,14 +38,13 @@ class Server
   def start_accepting
     return if @accepting
 
-    if @under_crank
-      puts "Binding app to passed file descriptor"
-      @server = EM.attach_server(FD, @handler_klass, @handler_options.merge({
+    @server = if @under_crank
+      puts "RUBY: Binding app to passed file descriptor"
+      EM.attach_server(FD, @handler_klass, @handler_options.merge({
         pipe: @pipe
       }))
-      @pipe.send_command("NOW_ACCEPTING")
     else
-      puts "Starting new server on port 8000"
+      puts "RUBY: Starting new server on port 8000"
       EM.start_server('0.0.0.0', 8000, @handler_klass, @handler_options)
     end
     @accepting = true
@@ -77,12 +76,12 @@ class Server
   private
   
   def pipe_command(command, args)
-    puts "Received pipe command #{command}, args: #{args}"
+    puts "RUBY: Received pipe command #{command}, args: #{args}"
     case command
     when "START_ACCEPTING"
       start_accepting
     else
-      puts "Unknown pipe command #{command}"
+      puts "RUBY: Unknown pipe command #{command}"
     end
   end
 
@@ -99,7 +98,7 @@ class AppHandler < EM::Connection
 
   def post_init
     @server.conn_add(self)
-    send_data("Hello there (#{$uid})")
+    send_data("Hello there (#{Process.pid})")
     # @timer = EM::Timer.new(0.2) do
     #   close_connection
     # end
@@ -152,7 +151,7 @@ EM.run do
   # server.start_accepting
   
   Signal.trap("HUP") do
-    puts "HUP: Stop accepting (#{server.report})"
+    puts "RUBY: HUP: Stop accepting (#{server.report})"
     server.stop_accepting
   end
   
@@ -160,12 +159,12 @@ EM.run do
   %w{INT TERM}.each do |sig|
     Signal.trap(sig) do
       if try_graceful
-        puts "INT/TERM: Closing connections gracefully (#{server.report})"
-        server.close_gracefully { puts "Graceful exit"; EM.stop }
+        puts "RUBY: INT/TERM: Closing connections gracefully (#{server.report})"
+        server.close_gracefully { puts "RUBY: Graceful exit"; EM.stop }
         try_graceful = false
       else
-        puts "INT/TERM: Closing connections forcefully (#{server.report})"
-        server.close_forcefully { puts "Graceful exit"; EM.stop }
+        puts "RUBY: INT/TERM: Closing connections forcefully (#{server.report})"
+        server.close_forcefully { puts "RUBY: Graceful exit"; EM.stop }
       end
     end
   end

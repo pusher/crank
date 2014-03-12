@@ -8,31 +8,29 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"sync"
 	"syscall"
 	"time"
 )
 
 type Process struct {
 	*EventLoop
-	proto         *Prototype
-	exitHandlers  []func()
-	_sendSignal   chan syscall.Signal
-	outw          *os.File
-	inr           *os.File
-	command       *exec.Cmd
-	acceptingCond *sync.Cond
-	accepting     bool
-	pid       int
+	proto        *Prototype
+	exitHandlers []func()
+	_sendSignal  chan syscall.Signal
+	outw         *os.File
+	inr          *os.File
+	command      *exec.Cmd
+	pid          int
+	onStarted    chan bool
 }
 
-func NewProcess(proto *Prototype) *Process {
+func NewProcess(proto *Prototype, started chan bool) *Process {
 	return &Process{
-		EventLoop:     NewEventLoop(),
-		proto:         proto,
-		exitHandlers:  make([]func(), 0),
-		_sendSignal:   make(chan syscall.Signal),
-		acceptingCond: sync.NewCond(new(sync.RWMutex)),
+		EventLoop:    NewEventLoop(),
+		proto:        proto,
+		exitHandlers: make([]func(), 0),
+		_sendSignal:  make(chan syscall.Signal),
+		onStarted:    started,
 	}
 }
 
@@ -112,11 +110,8 @@ func (p *Process) Start() {
 			p.Log("Received command on pipe: %v", command)
 
 			switch command {
-			case "NOW_ACCEPTING":
-				p.acceptingCond.L.Lock()
-				p.accepting = true
-				p.acceptingCond.L.Unlock()
-				p.acceptingCond.Broadcast()
+			case "STARTED":
+				p.onStarted <- true
 			default:
 				p.Log("Unknown command received: %v", command)
 			}
@@ -165,20 +160,11 @@ func (p *Process) StopAccepting() {
 	})
 }
 
-// TODO: Do we really want this to be blocking?
 func (p *Process) StartAccepting() {
 	// Request that the process accepts
 	p.NextTick(func() {
 		p.sendPipeCommand("START_ACCEPTING", new(interface{}))
 	})
-
-	// Wait till NOW_ACCEPTING has been received from child
-	// TODO: Astract this logic - it's a mess
-	p.acceptingCond.L.Lock()
-	for !p.accepting {
-		p.acceptingCond.Wait()
-	}
-	p.acceptingCond.L.Unlock()
 }
 
 // Stop stops the process gracefully by first sending SIGTERM (indicating that connections should be closed gracefully), then by sending a second SIGTERM (indicating that connections should be closed forcibly), then finally by sending a SIGKILL

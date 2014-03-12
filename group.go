@@ -12,6 +12,7 @@ type Group struct {
 	proto           *Prototype
 	targetAccepting int
 	targetProcesses int
+	startingSet     processSet
 	acceptingSet    processSet
 	notAcceptingSet processSet
 	stoppingSet     processSet
@@ -47,6 +48,7 @@ func NewGroup(proto *Prototype, n int) *Group {
 		proto:           proto,
 		targetAccepting: n,
 		targetProcesses: n,
+		startingSet:     make(processSet),
 		acceptingSet:    make(processSet),
 		notAcceptingSet: make(processSet),
 		stoppingSet:     make(processSet),
@@ -149,24 +151,40 @@ func (self *Group) think() {
 }
 
 func (self *Group) nonStoppingCount() int {
-	return (self.acceptingSet.Size() + self.notAcceptingSet.Size())
+	return (self.startingSet.Size() + self.acceptingSet.Size() + self.notAcceptingSet.Size())
 }
 
 func (self *Group) totalCount() int {
-	return (self.acceptingSet.Size() + self.notAcceptingSet.Size() + self.stoppingSet.Size())
+	return (self.startingSet.Size() + self.acceptingSet.Size() + self.notAcceptingSet.Size() + self.stoppingSet.Size())
 }
 
 func (self *Group) startProcess() {
-	proc := NewProcess(self.proto)
-	self.acceptingSet.Add(proc)
-	proc.OnExit(func() {
-		// TODO: This needs to go onto group goroutine
-		delete(self.acceptingSet, proc)
-		delete(self.notAcceptingSet, proc)
-		delete(self.stoppingSet, proc)
+	onStarted := make(chan bool)
 
+	process := NewProcess(self.proto, onStarted)
+
+	// Process is initally placed in the starting set
+	self.startingSet.Add(process)
+
+	// Processes notify on startup, but should not start accepting automatically
+	go func() {
+		<-onStarted
+		self.NextTick(func() {
+			self.startingSet.Rem(process)
+			self.notAcceptingSet.Add(process)
+		})
+	}()
+
+	// Remove process from all sets on exit
+	process.OnExit(func() {
+		self.NextTick(func() {
+			self.startingSet.Rem(process)
+			self.acceptingSet.Rem(process)
+			self.notAcceptingSet.Rem(process)
+			self.stoppingSet.Rem(process)
+		})
 		self.scheduleThink()
 	})
-	proc.Start()
-	proc.StartAccepting()
+
+	process.Start()
 }
