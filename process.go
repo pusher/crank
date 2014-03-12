@@ -23,6 +23,7 @@ type Process struct {
 	command       *exec.Cmd
 	acceptingCond *sync.Cond
 	accepting     bool
+	pid       int
 }
 
 func NewProcess(proto *Prototype) *Process {
@@ -33,6 +34,17 @@ func NewProcess(proto *Prototype) *Process {
 		_sendSignal:   make(chan syscall.Signal),
 		acceptingCond: sync.NewCond(new(sync.RWMutex)),
 	}
+}
+
+func (p *Process) String() string {
+	return fmt.Sprintf("[process %v] ", p.pid)
+}
+
+func (p *Process) Log(format string, v ...interface{}) {
+	log.Print(
+		fmt.Sprintf("[process %v] ", p.pid),
+		fmt.Sprintf(format, v...),
+	)
 }
 
 func (p *Process) Start() {
@@ -70,7 +82,8 @@ func (p *Process) Start() {
 	if err = command.Start(); err != nil {
 		log.Fatal("Process start failed: ", err)
 	}
-	log.Print("[process] Process started")
+	p.pid = command.Process.Pid
+	p.Log("Process started")
 
 	// Close unused pipe-ends
 	outr.Close()
@@ -87,16 +100,16 @@ func (p *Process) Start() {
 		for {
 			n, err = inr.Read(data)
 			if err != nil || n == 0 {
-				log.Print("[process] Error reading on pipe: ", err)
+				p.Log("Error reading on pipe: %v", err)
 				return
 			}
 
 			if err, command, _ = decodePipeCommand(data[0:n]); err != nil {
-				log.Printf("[process] Invalid data recd on pipe: ", err)
+				p.Log("Invalid data recd on pipe: %v", err)
 				return
 			}
 
-			log.Print("[process] Received command on pipe: ", command)
+			p.Log("Received command on pipe: %v", command)
 
 			switch command {
 			case "NOW_ACCEPTING":
@@ -105,7 +118,7 @@ func (p *Process) Start() {
 				p.acceptingCond.L.Unlock()
 				p.acceptingCond.Broadcast()
 			default:
-				log.Print("[process] Unknown command received: ", command)
+				p.Log("Unknown command received: %v", command)
 			}
 		}
 	}()
@@ -113,7 +126,7 @@ func (p *Process) Start() {
 	// Goroutine catches process exit
 	go func() {
 		if err := command.Wait(); err == nil {
-			log.Printf("[process] Exited cleanly")
+			p.Log("Exited cleanly")
 		} else {
 			if exiterr, ok := err.(*exec.ExitError); ok {
 				// The program has exited with an exit code != 0
@@ -121,15 +134,15 @@ func (p *Process) Start() {
 					// Prints the cause of exit - either exit status or signal should be
 					// != -1 (-1 means not exited or not signaled). See
 					// http://golang.org/pkg/syscall/#WaitStatus
-					log.Printf(
-						"[process] Unclean exit: %v (exit status: %v, signal: %v)",
+					p.Log(
+						"Unclean exit: %v (exit status: %v, signal: %v)",
 						err, status.ExitStatus(), int(status.Signal()),
 					)
 				} else {
-					log.Printf("[process] Unsupported ExitError: %v", err)
+					p.Log("Unsupported ExitError: %v", err)
 				}
 			} else {
-				log.Printf("[process] Unexpected exit: %v", err)
+				p.Log("Unexpected exit: %v", err)
 			}
 		}
 
@@ -187,13 +200,13 @@ func (p *Process) OnExit(f func()) {
 }
 
 func (p *Process) sendSignal(sig syscall.Signal) {
-	log.Print("[process] Sending signal: ", sig)
+	p.Log("Sending signal: %v", sig)
 	p.command.Process.Signal(sig)
 }
 
 func (p *Process) sendPipeCommand(command string, args interface{}) {
-	log.Printf("[process] Sending command on pipe: %v", command)
 	json := fmt.Sprintf("[\"%v\", {}]", command)
+	p.Log("Sending command on pipe: %v", command)
 	if _, err := p.outw.Write([]byte(json)); err != nil {
 		log.Print("Error writing to outw: ", err)
 	}
