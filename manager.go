@@ -23,14 +23,17 @@ func NewManager(proto *Prototype, n int) *Manager {
 
 // Run starts the event loop for the manager process
 func (self *Manager) Run() {
-	self.start()
+	groupCounter := 1
+	self.start(groupCounter)
+
 	for {
 		select {
 		case <-self._restart:
 			log.Print("[manager] Restarting - replacing process group")
 
 			// Create new process group
-			newGroup := NewGroup(self.proto, 0)
+			groupCounter = groupCounter + 1
+			newGroup := NewGroup(groupCounter, self.proto, 0)
 			go newGroup.Run()
 
 			// Reduce the size of the new group while increasing the new one
@@ -59,7 +62,7 @@ func (self *Manager) Restart() {
 }
 
 // start starts an initial process group
-func (self *Manager) start() {
-	self.group = NewGroup(self.proto, self.targetCount)
+func (self *Manager) start(groupId int) {
+	self.group = NewGroup(groupId, self.proto, self.targetCount)
 	go self.group.Run()
 }

@@ -7,6 +7,7 @@ import (
 )
 
 type Group struct {
+	Id int
 	*EventLoop
 	createdAt       time.Time
 	proto           *Prototype
@@ -41,8 +42,9 @@ func (self processSet) Size() int {
 	return len(self)
 }
 
-func NewGroup(proto *Prototype, n int) *Group {
+func NewGroup(id int, proto *Prototype, n int) *Group {
 	return &Group{
+		Id:              id,
 		EventLoop:       NewEventLoop(),
 		createdAt:       time.Now(),
 		proto:           proto,
@@ -56,8 +58,9 @@ func NewGroup(proto *Prototype, n int) *Group {
 }
 
 func (self *Group) String() string {
-	const layout = "2006-01-02@15:04:05"
-	return fmt.Sprintf("[group %v] ", self.createdAt.Format(layout))
+	// const layout = "2006-01-02@15:04:05"
+	// return fmt.Sprintf("[group %v] ", self.createdAt.Format(layout))
+	return fmt.Sprintf("[group %v] ", self.Id)
 }
 
 func (self *Group) stateReport() string {
