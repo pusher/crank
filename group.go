@@ -60,6 +60,10 @@ func (self *Group) String() string {
 	return fmt.Sprintf("[group %v] ", self.createdAt.Format(layout))
 }
 
+func (self *Group) stateReport() string {
+	return fmt.Sprintf("Processes: %v (Accepting: %v [target:%v], Not-accepting: %v, Starting: %v, Stopping: %v)", self.totalCount(), self.acceptingSet.Size(), self.targetAccepting, self.notAcceptingSet.Size(), self.startingSet.Size(), self.stoppingSet.Size())
+}
+
 func (self *Group) Run() {
 	self.scheduleThink()
 	self.EventLoop.Run()
@@ -104,6 +108,8 @@ func (self *Group) scheduleThink() {
 }
 
 func (self *Group) think() {
+	log.Print(self, self.stateReport())
+
 	if self.acceptingSet.Size() == self.targetAccepting && self.nonStoppingCount() == self.targetProcesses {
 		if self.totalCount() == 0 {
 			log.Print(self, "Terminating group (last process has exited)")
