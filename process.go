@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -15,6 +14,7 @@ import (
 type Process struct {
 	*EventLoop
 	proto        *Prototype
+	groupId      int
 	exitHandlers []func()
 	_sendSignal  chan syscall.Signal
 	outw         *os.File
@@ -24,10 +24,11 @@ type Process struct {
 	onStarted    chan bool
 }
 
-func NewProcess(proto *Prototype, started chan bool) *Process {
+func NewProcess(proto *Prototype, groupId int, started chan bool) *Process {
 	return &Process{
 		EventLoop:    NewEventLoop(),
 		proto:        proto,
+		groupId:      groupId,
 		exitHandlers: make([]func(), 0),
 		_sendSignal:  make(chan syscall.Signal),
 		onStarted:    started,
@@ -35,14 +36,11 @@ func NewProcess(proto *Prototype, started chan bool) *Process {
 }
 
 func (p *Process) String() string {
-	return fmt.Sprintf("[process %v] ", p.pid)
+	return fmt.Sprintf("(%v)[%v] ", p.groupId, p.pid)
 }
 
 func (p *Process) Log(format string, v ...interface{}) {
-	log.Print(
-		fmt.Sprintf("[process %v] ", p.pid),
-		fmt.Sprintf(format, v...),
-	)
+	log.Print(p.String(), fmt.Sprintf(format, v...))
 }
 
 func (p *Process) Start() {
@@ -70,11 +68,8 @@ func (p *Process) Start() {
 	command.ExtraFiles = append(command.ExtraFiles, outr)       // 4: client recv pipe
 	command.ExtraFiles = append(command.ExtraFiles, inw)        // 5: client send pipe
 
-	// TODO: Temporarily forward stdout & stderr
 	stdout, _ := command.StdoutPipe()
 	stderr, _ := command.StderrPipe()
-	go io.Copy(os.Stdout, stdout)
-	go io.Copy(os.Stderr, stderr)
 
 	// Start process
 	if err = command.Start(); err != nil {
@@ -82,6 +77,11 @@ func (p *Process) Start() {
 	}
 	p.pid = command.Process.Pid
 	p.Log("Process started")
+
+	// Write stdout & stderr to the
+	processLog := NewProcessLog(p.proto.out, p.groupId, p.pid)
+	go processLog.Copy(stdout)
+	go processLog.Copy(stderr)
 
 	// Close unused pipe-ends
 	outr.Close()

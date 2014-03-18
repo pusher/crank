@@ -60,7 +60,7 @@ func NewGroup(id int, proto *Prototype, n int) *Group {
 func (self *Group) String() string {
 	// const layout = "2006-01-02@15:04:05"
 	// return fmt.Sprintf("[group %v] ", self.createdAt.Format(layout))
-	return fmt.Sprintf("[group %v] ", self.Id)
+	return fmt.Sprintf("[group:%v] ", self.Id)
 }
 
 func (self *Group) stateReport() string {
@@ -170,7 +170,7 @@ func (self *Group) totalCount() int {
 func (self *Group) startProcess() {
 	onStarted := make(chan bool)
 
-	process := NewProcess(self.proto, onStarted)
+	process := NewProcess(self.proto, self.Id, onStarted)
 
 	// Process is initally placed in the starting set
 	self.startingSet.Add(process)

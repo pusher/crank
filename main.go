@@ -1,14 +1,18 @@
 package main
 
 import (
+	"./logfile"
 	"flag"
+	"io"
 	"log"
+	"os"
 	"syscall"
 )
 
 
 func main() {
 	var addr = flag.String("addr", "", "external address to bind (e.g. ':80')")
+	var outputFile = flag.String("out", "", "write stdout/err to file")
 	flag.Parse()
 
 	// TODO: If required should not be a flag?
@@ -25,9 +29,21 @@ func main() {
 	external := NewExternal(*addr)
 	log.Print(external)
 
-	prototype := NewPrototype(cmd, args, external.fd)
+	// Send process output to outputFile or stdout depending on whether flag passed
+	var output io.Writer
+	if len(*outputFile) > 0 {
+		logOutput := logfile.New(*outputFile)
+		go logOutput.Run()
+		defer logOutput.Close()
+		output = logOutput
+	} else {
+		output = os.Stdout
+	}
 
-	manager := NewManager(prototype, 2)
+	// Prototype is used to create new processes
+	prototype := NewPrototype(cmd, args, external.fd, output)
+
+	manager := NewManager(prototype, 1)
 	go manager.Run()
 
 	// Restart processes on SIGHUP
