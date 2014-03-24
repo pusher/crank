@@ -44,7 +44,7 @@ func main() {
 	}
 
 	// Prototype is used to create new processes
-	prototype := NewPrototype(cmd, args, external.fd, output)
+	prototype := NewPrototype(cmd, args, external.Fd, output)
 
 	manager := NewManager(prototype, 1)
 	go manager.Run()
