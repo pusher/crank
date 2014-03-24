@@ -20,9 +20,10 @@ func main() {
 		log.Fatal("Missing required flag: addr")
 	}
 
-	if flag.NArg() < 1 {
-		log.Print("Usage: crank OPTIONS COMMAND")
+	if flag.NArg() == 0 {
+		log.Fatal("Missing COMMAND [Usage: crank OPTIONS COMMAND]")
 	}
+
 	cmd := flag.Arg(0)
 	args := flag.Args()[1:]
 
