@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"os"
 )
@@ -14,21 +13,21 @@ type External struct {
 	fd      *os.File
 }
 
-func NewExternal(addr string) *External {
+func NewExternal(addr string) (e *External, err error) {
 	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
 	if err != nil {
-		log.Fatal(err)
+		return
 	}
-	socket, e := net.ListenTCP("tcp", tcpAddr)
-	if e != nil {
-		log.Fatal(e)
+	socket, err := net.ListenTCP("tcp", tcpAddr)
+	if err != nil {
+		return
 	}
-	file, e := socket.File()
-	if e != nil {
-		log.Fatal(e)
+	file, err := socket.File()
+	if err != nil {
+		return
 	}
 
-	return &External{addr, tcpAddr, socket, file}
+	return &External{addr, tcpAddr, socket, file}, nil
 }
 
 func (e *External) String() string {
