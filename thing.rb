@@ -2,16 +2,20 @@ require 'bundler/setup'
 require 'eventmachine'
 require 'json'
 require 'set'
+require './message_parser'
 
 class BiPipe
   class PipeHandler < EM::Connection
     def initialize(pipe = nil)
       @pipe = pipe
+      @message_parser = MessageParser.new
     end
 
     def receive_data(data)
-      parsed = JSON.parse(data)
-      @pipe.command(*parsed)
+      @message_parser.feed_data(data)
+      while msg = @message_parser.pull_message
+        @pipe.command(*JSON.parse(msg))
+      end
     end
   end
 
@@ -27,7 +31,8 @@ class BiPipe
   def on_command(&blk); @on_command = blk; end
 
   def send_command(command, args = {})
-    @writer.send_data(JSON.generate([command, args]))
+    data = JSON.generate([command, args])
+    @writer.send_data("#{[data.bytesize].pack('N')}#{data}")
   end
 end
 

@@ -2,10 +2,12 @@ package main
 
 import (
 	"encoding/json"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"log"
 	"os"
+	"io"
 	"os/exec"
 	"syscall"
 	"time"
@@ -93,16 +95,27 @@ func (p *Process) Start() {
 	go func() {
 		data := make([]byte, 1024)
 		var err error
-		var n int
 		var command string
 		for {
-			n, err = inr.Read(data)
-			if err != nil || n == 0 {
+			var size uint32
+			err = binary.Read(inr, binary.BigEndian, &size)
+			if err != nil {
 				p.Log("Error reading on pipe: %v", err)
 				return
 			}
 
-			if err, command, _ = decodePipeCommand(data[0:n]); err != nil {
+			if size > 1024 {
+				p.Log("Error, cannot read message, greater than 1KB")
+				return
+			}
+
+			_, err = io.ReadFull(inr, data[:size])
+			if err != nil {
+				p.Log("Error reading on pipe: %v", err)
+				return
+			}
+
+			if err, command, _ = decodePipeCommand(data[:size]); err != nil {
 				p.Log("Invalid data recd on pipe: %v", err)
 				return
 			}
@@ -193,8 +206,13 @@ func (p *Process) sendSignal(sig syscall.Signal) {
 func (p *Process) sendPipeCommand(command string, args interface{}) {
 	json := fmt.Sprintf("[\"%v\", {}]", command)
 	p.Log("Sending command on pipe: %v", command)
-	if _, err := p.outw.Write([]byte(json)); err != nil {
+
+	if err := binary.Write(p.outw, binary.BigEndian, uint32(len(json))); err != nil {
 		log.Print("Error writing to outw: ", err)
+	} else {
+		if _, err := p.outw.Write([]byte(json)); err != nil {
+			log.Print("Error writing to outw: ", err)
+		}
 	}
 }
 
