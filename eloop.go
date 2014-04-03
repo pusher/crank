@@ -5,40 +5,46 @@ import (
 )
 
 type EventLoop struct {
-	_exec chan func()
-	_exit chan bool
+	exec chan Callback
+	exit chan bool
 }
+
+type Callback func()
+
+func NoopCallback() {}
 
 func NewEventLoop() *EventLoop {
 	return &EventLoop{
-		_exec: make(chan func(), 10),
-		_exit: make(chan bool, 10),
+		exec: make(chan Callback, 10),
+		exit: make(chan bool, 10),
 	}
 }
 
-func (self *EventLoop) Run() {
+func (self *EventLoop) Run(every time.Duration, defaultCb Callback) {
 	for {
 		select {
-		case f := <-self._exec:
-			f()
-		case <-self._exit:
-			close(self._exit)
-			close(self._exec)
+		case cb := <-self.exec:
+			cb()
+		case <-time.After(every):
+			defaultCb()
+		case <-self.exit:
+			close(self.exit)
+			close(self.exec)
 			return
 		}
 	}
 }
 
-func (self *EventLoop) NextTick(f func()) {
-	self._exec <- f
+func (self *EventLoop) NextTick(cb Callback) {
+	self.exec <- cb
 }
 
-func (self *EventLoop) AddTimer(d time.Duration, f func()) {
+func (self *EventLoop) AddTimer(d time.Duration, cb Callback) {
 	time.AfterFunc(d, func() {
-		self._exec <- f
+		self.exec <- cb
 	})
 }
 
 func (self *EventLoop) Stop() {
-	self._exit <- true
+	self.exit <- true
 }

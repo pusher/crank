@@ -160,7 +160,7 @@ func (p *Process) Start() {
 	}()
 
 	// Main run loop for process
-	go p.EventLoop.Run()
+	go p.EventLoop.Run(time.Second, NoopCallback)
 }
 
 // StopAccepting send a SIGHUP signal to the process

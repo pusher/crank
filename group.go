@@ -69,7 +69,7 @@ func (self *Group) stateReport() string {
 
 func (self *Group) Run() {
 	self.scheduleThink()
-	self.EventLoop.Run()
+	self.EventLoop.Run(time.Second, self.think)
 	// TODO: Stop event loop when process exits
 }
 
@@ -152,11 +152,6 @@ func (self *Group) think() {
 			self.stoppingSet.Add(p)
 		}
 	}
-
-	// Schedule next check in 1s
-	self.AddTimer(time.Second, func() {
-		self.think()
-	})
 }
 
 func (self *Group) nonStoppingCount() int {
