@@ -26,8 +26,7 @@ type Process struct {
 	groupId      int
 	exitHandlers []func()
 	_sendSignal  chan syscall.Signal
-	outw         *os.File
-	inr          *os.File
+	notify       *os.File
 	command      *exec.Cmd
 	pid          int
 	onStarted    chan bool
@@ -53,17 +52,12 @@ func (p *Process) Log(format string, v ...interface{}) {
 }
 
 func (p *Process) Start() {
-	// Pipe for crank -> process
-	outr, outw, err := os.Pipe()
+	fds, err := syscall.Socketpair(syscall.AF_LOCAL, syscall.SOCK_STREAM, 0)
 	if err != nil {
-		log.Print("Error creating pipe", err)
+		log.Fatal("Process start failed: ", err)
 	}
-
-	// Pipe for process -> crank
-	inr, inw, err := os.Pipe()
-	if err != nil {
-		log.Print("Error creating pipe", err)
-	}
+	notifyRcv := os.NewFile(uintptr(fds[0]), "<-|->")
+	notifySnd := os.NewFile(uintptr(fds[1]), "--({_O_})--")
 
 	command := exec.Command(p.proto.cmd, p.proto.args...)
 	p.command = command
@@ -71,11 +65,11 @@ func (p *Process) Start() {
 	// Inherit the environment with which crank was run
 	command.Env = os.Environ()
 	command.Env = append(command.Env, "LISTEN_FDS=1")
+	command.Env = append(command.Env, "NOTIFY_FD=4")
 
 	// Pass file descriptors to the process
 	command.ExtraFiles = append(command.ExtraFiles, p.proto.fd) // 3: accept socket
-	command.ExtraFiles = append(command.ExtraFiles, outr)       // 4: client recv pipe
-	command.ExtraFiles = append(command.ExtraFiles, inw)        // 5: client send pipe
+	command.ExtraFiles = append(command.ExtraFiles, notifySnd)  // 4: notify socket
 
 	stdout, _ := command.StdoutPipe()
 	stderr, _ := command.StderrPipe()
@@ -94,33 +88,30 @@ func (p *Process) Start() {
 	go processLog.Copy(stderr)
 
 	// Close unused pipe-ends
-	outr.Close()
-	inw.Close()
-	p.outw = outw
-	p.inr = inr
+	notifySnd.Close()
 
 	// Read on pipe from child, and process commands
 	go func() {
-		data := make([]byte, 1024)
+		defer notifyRcv.Close()
+
 		var err error
-		var n int
 		var command string
+		var n int
+		data := make([]byte, 4096)
+
 		for {
-			n, err = inr.Read(data)
-			if err != nil || n == 0 {
+			n, err = notifyRcv.Read(data)
+			if err != nil {
 				p.Log("Error reading on pipe: %v", err)
 				return
 			}
 
-			if err, command, _ = decodePipeCommand(data[0:n]); err != nil {
-				p.Log("Invalid data recd on pipe: %v", err)
-				return
-			}
+			command = string(data[:n])
 
 			p.Log("Received command on pipe: %v", command)
 
 			switch command {
-			case "STARTED":
+			case "READY=1":
 				p.onStarted <- true
 			default:
 				p.Log("Unknown command received: %v", command)
@@ -163,21 +154,15 @@ func (p *Process) Start() {
 	go p.EventLoop.Run(time.Second, NoopCallback)
 }
 
-// StopAccepting send a SIGHUP signal to the process
-func (p *Process) StopAccepting() {
+// Shutdown send a SIGTERM signal to the process and lets the process gracefully
+// shutdown.
+func (p *Process) Shutdown() {
 	p.NextTick(func() {
-		p.sendSignal(syscall.SIGHUP)
+		p.sendSignal(syscall.SIGTERM)
 	})
 }
 
-func (p *Process) StartAccepting() {
-	// Request that the process accepts
-	p.NextTick(func() {
-		p.sendPipeCommand("START_ACCEPTING", new(interface{}))
-	})
-}
-
-// Stop stops the process gracefully by first sending SIGTERM (indicating that connections should be closed gracefully), then by sending a second SIGTERM (indicating that connections should be closed forcibly), then finally by sending a SIGKILL
+// Stop stops the process with increased aggressiveness
 func (p *Process) Stop() {
 	p.NextTick(func() {
 		p.sendSignal(syscall.SIGTERM)
@@ -198,14 +183,6 @@ func (p *Process) OnExit(f func()) {
 func (p *Process) sendSignal(sig syscall.Signal) {
 	p.Log("Sending signal: %v", sig)
 	p.command.Process.Signal(sig)
-}
-
-func (p *Process) sendPipeCommand(command string, args interface{}) {
-	json := fmt.Sprintf("[\"%v\", {}]", command)
-	p.Log("Sending command on pipe: %v", command)
-	if _, err := p.outw.Write([]byte(json)); err != nil {
-		log.Print("Error writing to outw: ", err)
-	}
 }
 
 func decodePipeCommand(data []byte) (err error, command string, args interface{}) {
