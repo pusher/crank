@@ -22,6 +22,8 @@ func (self *EventLoop) Run() {
 		case f := <-self._exec:
 			f()
 		case <-self._exit:
+			close(self._exit)
+			close(self._exec)
 			return
 		}
 	}
