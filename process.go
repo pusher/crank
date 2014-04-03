@@ -11,6 +11,15 @@ import (
 	"time"
 )
 
+var DevNull *os.File
+
+func init() {
+	var err error
+	if DevNull, err = os.Open("/dev/null"); err != nil {
+		panic("could not open /dev/null: " + err.Error())
+	}
+}
+
 type Process struct {
 	*EventLoop
 	proto        *Prototype
@@ -70,6 +79,7 @@ func (p *Process) Start() {
 
 	stdout, _ := command.StdoutPipe()
 	stderr, _ := command.StderrPipe()
+	command.Stdin = DevNull
 
 	// Start process
 	if err = command.Start(); err != nil {
