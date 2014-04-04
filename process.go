@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -106,7 +107,7 @@ func (p *Process) Start() {
 				return
 			}
 
-			command = string(data[:n])
+			command = strings.TrimSpace(string(data[:n]))
 
 			p.Log("Received command on pipe: %v", command)
 
