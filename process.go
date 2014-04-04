@@ -56,7 +56,7 @@ func (p *Process) Start() {
 	if err != nil {
 		log.Fatal("Process start failed: ", err)
 	}
-	notifyRcv := os.NewFile(uintptr(fds[0]), "<-|->")
+	notifyRcv := os.NewFile(uintptr(fds[0]), "<-|->") // File name is arbitrary
 	notifySnd := os.NewFile(uintptr(fds[1]), "--({_O_})--")
 
 	command := exec.Command(p.proto.cmd, p.proto.args...)
