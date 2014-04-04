@@ -14,7 +14,7 @@ type ProcessLog struct {
 }
 
 func NewProcessLog(out io.Writer, gid, pid int) *ProcessLog {
-	prefix := fmt.Sprintf("(%v)[%v]", gid, pid)
+	prefix := fmt.Sprintf("[%v:%v]", gid, pid)
 	return &ProcessLog{out, prefix}
 }
 

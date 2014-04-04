@@ -44,7 +44,7 @@ func NewProcess(proto *Prototype, groupId int, started chan bool) *Process {
 }
 
 func (p *Process) String() string {
-	return fmt.Sprintf("(%v)[%v] ", p.groupId, p.pid)
+	return fmt.Sprintf("[%v:%v] ", p.groupId, p.pid)
 }
 
 func (p *Process) Log(format string, v ...interface{}) {

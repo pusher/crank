@@ -56,11 +56,11 @@ func NewGroup(id int, proto *Prototype, n int) *Group {
 func (self *Group) String() string {
 	// const layout = "2006-01-02@15:04:05"
 	// return fmt.Sprintf("[group %v] ", self.createdAt.Format(layout))
-	return fmt.Sprintf("[group:%v] ", self.Id)
+	return fmt.Sprintf("[%v] ", self.Id)
 }
 
 func (self *Group) stateReport() string {
-	return fmt.Sprintf("Processes: %v (Accepting: %v [target:%v], Starting: %v, Stopping: %v)", self.totalCount(), self.acceptingSet.Size(), self.targetProcesses, self.startingSet.Size(), self.stoppingSet.Size())
+	return fmt.Sprintf("Accepting: %v/%v, Starting: %v, Stopping: %v", self.acceptingSet.Size(), self.targetProcesses, self.startingSet.Size(), self.stoppingSet.Size())
 }
 
 func (self *Group) Run() {
