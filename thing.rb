@@ -1,7 +1,8 @@
+require 'socket'
+
+require 'set'
 require 'bundler/setup'
 require 'eventmachine'
-require 'set'
-require 'socket'
 
 # Implements sd-notify
 # http://www.freedesktop.org/software/systemd/man/sd_notify.html
@@ -16,8 +17,12 @@ module Sd extend self
   # It's used to avoid SIGPIPE on the process if the other end disappears
   MSG_NOSIGNAL = Socket.const_defined?(:MSG_NOSIGNAL) ? Socket::MSG_NOSIGNAL : 0
 
+  FDS_START = 3
+
+  # Sends a message to the supervisor if LISTEN_FD/LISTEN_SOCKET is set.
+  # Otherwise it is a noop.
   def notify(msg)
-    socket.sendmsg cleanup(msg), MSG_NOSIGNAL
+    notify_socket.sendmsg cleanup(msg), MSG_NOSIGNAL
   end
 
   def notify_ready
@@ -58,9 +63,23 @@ module Sd extend self
     memoize(:watchdog_usec, watchdog_enabled? && ENV.delete('WATCHDOG_USEC').to_i)
   end
 
+  # Returns an array of IO if LISTEN_FDS is set.
+  def fds(crank_compat = true)
+    fds = []
+    if (crank_compat || ENV['LISTEN_PID'].to_i == Process.pid) &&
+       (fd_count = ENV['LISTEN_FDS'].to_i) > 0
+      ENV.delete('LISTEN_PID')
+      ENV.delete('LISTEN_FDS')
+      fds = fd_count.times
+        .map{|i| IO.new(FDS_START + i)}
+        .each{|io| io.close_on_exec = true }
+    end
+    memoize(:fds, fds)
+  end
+
   protected
 
-  def socket
+  def notify_socket
     socket = if ((socket_path = ENV.delete('NOTIFY_SOCKET')))
       UNIXSocket.open(socket_path)
     # This is our own extension
@@ -70,7 +89,7 @@ module Sd extend self
       NullSocket.new
     end
     socket.close_on_exec = true
-    memoize(:socket, socket)
+    memoize(:notify_socket, socket)
   end
 
   def cleanup(msg)
@@ -86,10 +105,6 @@ module Sd extend self
 end
 
 class CrankedServer
-  FD = 3
-
-  attr_reader :under_crank
-
   # Delegate must respond to
   # * start_accepting(fd)
   # * start_server(port)
@@ -101,7 +116,7 @@ class CrankedServer
     @accepting = false
     @stop_gracefully = true
 
-    @under_crank = ENV["LISTEN_FDS"] && ENV["LISTEN_FDS"].to_i == 1
+    @fds = Sd.fds
   end
 
   def run
@@ -114,8 +129,8 @@ class CrankedServer
   def start_accepting
     return if @accepting
 
-    if @under_crank
-      @server.start_accepting(FD)
+    if @fds.any?
+      @server.start_accepting(@fds.first)
     else
       @server.start_server(@port)
     end
