@@ -21,7 +21,8 @@ func init() {
 
 type Process struct {
 	*EventLoop
-	proto       *Prototype
+	config      *ProcessConfig
+	external    *External
 	_sendSignal chan syscall.Signal
 	notify      *os.File
 	command     *exec.Cmd
@@ -30,10 +31,11 @@ type Process struct {
 	onExited    chan *Process
 }
 
-func NewProcess(proto *Prototype, started chan bool, exited chan *Process) *Process {
+func NewProcess(config *ProcessConfig, external *External, started chan bool, exited chan *Process) *Process {
 	return &Process{
 		EventLoop:   NewEventLoop(),
-		proto:       proto,
+		config:      config,
+		external:    external,
 		_sendSignal: make(chan syscall.Signal),
 		onStarted:   started,
 		onExited:    exited,
@@ -56,7 +58,7 @@ func (p *Process) Start() {
 	notifyRcv := os.NewFile(uintptr(fds[0]), "<-|->") // File name is arbitrary
 	notifySnd := os.NewFile(uintptr(fds[1]), "--({_O_})--")
 
-	command := exec.Command(p.proto.cmd, p.proto.args...)
+	command := exec.Command(p.config.Command)
 	p.command = command
 
 	// Inherit the environment with which crank was run
@@ -65,8 +67,8 @@ func (p *Process) Start() {
 	command.Env = append(command.Env, "NOTIFY_FD=4")
 
 	// Pass file descriptors to the process
-	command.ExtraFiles = append(command.ExtraFiles, p.proto.fd) // 3: accept socket
-	command.ExtraFiles = append(command.ExtraFiles, notifySnd)  // 4: notify socket
+	command.ExtraFiles = append(command.ExtraFiles, p.external.Fd) // 3: accept socket
+	command.ExtraFiles = append(command.ExtraFiles, notifySnd)     // 4: notify socket
 
 	stdout, _ := command.StdoutPipe()
 	stderr, _ := command.StderrPipe()
@@ -80,7 +82,7 @@ func (p *Process) Start() {
 	p.Log("Process started")
 
 	// Write stdout & stderr to the
-	processLog := NewProcessLog(p.proto.out, p.Pid)
+	processLog := NewProcessLog(os.Stdout, p.Pid)
 	go processLog.Copy(stdout)
 	go processLog.Copy(stderr)
 

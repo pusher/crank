@@ -17,9 +17,10 @@ func (self processSet) Rem(p *Process) {
 
 // Manager manages multiple process groups
 type Manager struct {
-	proto          *Prototype
+	config         *ProcessConfig
+	external       *External
 	restart        chan bool
-	started        chan bool     // TODO pass PID
+	started        chan bool // TODO pass PID
 	exited         chan *Process
 	newProcess     *Process
 	currentProcess *Process
@@ -27,9 +28,10 @@ type Manager struct {
 	OnShutdown     sync.WaitGroup
 }
 
-func NewManager(proto *Prototype, n int) *Manager {
+func NewManager(config *ProcessConfig, external *External) *Manager {
 	manager := &Manager{
-		proto:        proto,
+		config:       config,
+		external:     external,
 		restart:      make(chan bool),
 		started:      make(chan bool),
 		exited:       make(chan *Process),
@@ -41,7 +43,7 @@ func NewManager(proto *Prototype, n int) *Manager {
 
 // Run starts the event loop for the manager process
 func (self *Manager) Run() {
-	if self.proto != nil {
+	if self.config != nil {
 		self.startNewProcess()
 	}
 
@@ -91,7 +93,7 @@ func (self *Manager) startNewProcess() {
 		log.Print("[manager] New process is already being started")
 		return // TODO what do we want to do in this case
 	}
-	self.newProcess = NewProcess(self.proto, self.started, self.exited)
+	self.newProcess = NewProcess(self.config, self.external, self.started, self.exited)
 	self.newProcess.Start()
 }
 

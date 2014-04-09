@@ -3,28 +3,24 @@ package main
 import (
 	"./logfile"
 	"flag"
-	"io"
 	"log"
-	"os"
 	"syscall"
 )
 
 func main() {
 	var addr = flag.String("addr", "", "external address to bind (e.g. ':80')")
 	var outputFile = flag.String("out", "", "write stdout/err to file")
+	var configPath = flag.String("conf", "", "path to the process config file")
 	flag.Parse()
 
 	// TODO: If required should not be a flag?
+	// TODO: refactor this
 	if len(*addr) == 0 {
 		log.Fatal("Missing required flag: addr")
 	}
-
-	if flag.NArg() == 0 {
-		log.Fatal("Missing COMMAND [Usage: crank OPTIONS COMMAND]")
+	if len(*configPath) == 0 {
+		log.Fatal("Missing required flag: conf")
 	}
-
-	cmd := flag.Arg(0)
-	args := flag.Args()[1:]
 
 	external, err := NewExternal(*addr)
 	if err != nil {
@@ -33,20 +29,20 @@ func main() {
 	log.Print(external)
 
 	// Send process output to outputFile or stdout depending on whether flag passed
-	var output io.Writer
 	if len(*outputFile) > 0 {
 		logOutput := logfile.New(*outputFile)
 		go logOutput.Run()
 		defer logOutput.Close()
-		output = logOutput
-	} else {
-		output = os.Stdout
 	}
 
 	// Prototype is used to create new processes
-	prototype := NewPrototype(cmd, args, external.Fd, output)
+	processConfig, err := LoadProcessConfig(*configPath)
+	if err != nil {
+		// TODO handle empty files as in the design
+		log.Fatal(err)
+	}
 
-	manager := NewManager(prototype, 1)
+	manager := NewManager(processConfig, external)
 	go manager.Run()
 
 	// Restart processes on SIGHUP
