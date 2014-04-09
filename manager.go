@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"sync"
 )
 
 type processSet map[*Process]bool
@@ -22,14 +23,17 @@ type Manager struct {
 	newProcess     *Process
 	currentProcess *Process
 	oldProcesses   processSet
+	OnShutdown     sync.WaitGroup
 }
 
 func NewManager(proto *Prototype, n int) *Manager {
-	return &Manager{
+	manager := &Manager{
 		proto:        proto,
 		restart:      make(chan bool),
 		oldProcesses: make(processSet),
 	}
+	manager.OnShutdown.Add(1)
+	return manager
 }
 
 // Run starts the event loop for the manager process
@@ -45,7 +49,9 @@ func (self *Manager) Run() {
 			self.startNewProcess()
 			// TODO throttling
 		case <-self.started:
+			log.Printf("[manager] Process %d started", self.newProcess.Pid)
 			if self.currentProcess != nil {
+				log.Printf("[manager] Shutting down the current process %d", self.currentProcess.Pid)
 				self.currentProcess.Shutdown()
 				self.oldProcesses.Add(self.currentProcess)
 			}
@@ -60,8 +66,23 @@ func (self *Manager) Restart() {
 	self.restart <- true
 }
 
-func (self *Manager) startNewProcess() {
+func (self *Manager) Shutdown() {
 	if self.newProcess != nil {
+		self.newProcess.Kill()
+	}
+	if self.currentProcess != nil {
+		self.currentProcess.Kill()
+	}
+	for process, _ := range self.oldProcesses {
+		process.Kill()
+	}
+	self.OnShutdown.Done()
+}
+
+func (self *Manager) startNewProcess() {
+	log.Print("[manager] Starting a new process")
+	if self.newProcess != nil {
+		log.Print("[manager] New process is already being started")
 		return // TODO what do we want to do in this case
 	}
 	self.newProcess = NewProcess(self.proto, self.started)
@@ -70,6 +91,7 @@ func (self *Manager) startNewProcess() {
 }
 
 func (self *Manager) onProcessExit(process *Process) {
+	log.Printf("[manager] Process %d exited", process.Pid)
 	// TODO process exit status?
 	if process == self.newProcess {
 		log.Print("[manager] Process exited in the new status")
@@ -79,6 +101,7 @@ func (self *Manager) onProcessExit(process *Process) {
 		self.currentProcess = nil
 		// TODO: shutdown
 	} else {
+		log.Print("[manager] Process exited in the old status")
 		self.oldProcesses.Rem(process)
 	}
 }

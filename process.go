@@ -28,7 +28,7 @@ type Process struct {
 	_sendSignal  chan syscall.Signal
 	notify       *os.File
 	command      *exec.Cmd
-	pid          int
+	Pid          int
 	onStarted    chan bool
 }
 
@@ -45,7 +45,7 @@ func NewProcess(proto *Prototype, started chan bool) *Process {
 }
 
 func (p *Process) String() string {
-	return fmt.Sprintf("[%v] ", p.pid)
+	return fmt.Sprintf("[%v] ", p.Pid)
 }
 
 func (p *Process) Log(format string, v ...interface{}) {
@@ -80,11 +80,11 @@ func (p *Process) Start() {
 	if err = command.Start(); err != nil {
 		log.Fatal("Process start failed: ", err)
 	}
-	p.pid = command.Process.Pid
+	p.Pid = command.Process.Pid
 	p.Log("Process started")
 
 	// Write stdout & stderr to the
-	processLog := NewProcessLog(p.proto.out, p.pid)
+	processLog := NewProcessLog(p.proto.out, p.Pid)
 	go processLog.Copy(stdout)
 	go processLog.Copy(stderr)
 
@@ -114,6 +114,7 @@ func (p *Process) Start() {
 			switch command {
 			case "READY=1":
 				p.onStarted <- true
+				p.Log("After onStarted")
 			default:
 				p.Log("Unknown command received: %v", command)
 			}
@@ -158,9 +159,11 @@ func (p *Process) Start() {
 // Shutdown send a SIGTERM signal to the process and lets the process gracefully
 // shutdown.
 func (p *Process) Shutdown() {
-	p.NextTick(func() {
-		p.sendSignal(syscall.SIGTERM)
-	})
+	p.sendSignal(syscall.SIGTERM)
+}
+
+func (p *Process) Kill() {
+	p.sendSignal(syscall.SIGKILL)
 }
 
 // Stop stops the process with increased aggressiveness

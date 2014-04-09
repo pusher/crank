@@ -54,5 +54,9 @@ func main() {
 		manager.Restart()
 	}, syscall.SIGHUP)
 
-	ExitOnSignal()
+	go OnSignalLoop(func() {
+		manager.Shutdown()
+	}, syscall.SIGTERM)
+
+	manager.OnShutdown.Wait()
 }
