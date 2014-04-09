@@ -13,8 +13,8 @@ type ProcessLog struct {
 	prefix string
 }
 
-func NewProcessLog(out io.Writer, gid, pid int) *ProcessLog {
-	prefix := fmt.Sprintf("[%v:%v]", gid, pid)
+func NewProcessLog(out io.Writer, pid int) *ProcessLog {
+	prefix := fmt.Sprintf("[%v]", pid)
 	return &ProcessLog{out, prefix}
 }
 

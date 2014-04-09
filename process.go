@@ -24,8 +24,7 @@ func init() {
 type Process struct {
 	*EventLoop
 	proto        *Prototype
-	groupId      int
-	exitHandlers []func()
+	exitHandlers []ProcessExitCallback
 	_sendSignal  chan syscall.Signal
 	notify       *os.File
 	command      *exec.Cmd
@@ -33,19 +32,20 @@ type Process struct {
 	onStarted    chan bool
 }
 
-func NewProcess(proto *Prototype, groupId int, started chan bool) *Process {
+type ProcessExitCallback func(p *Process)
+
+func NewProcess(proto *Prototype, started chan bool) *Process {
 	return &Process{
 		EventLoop:    NewEventLoop(),
 		proto:        proto,
-		groupId:      groupId,
-		exitHandlers: make([]func(), 0),
+		exitHandlers: make([]ProcessExitCallback, 0),
 		_sendSignal:  make(chan syscall.Signal),
 		onStarted:    started,
 	}
 }
 
 func (p *Process) String() string {
-	return fmt.Sprintf("[%v:%v] ", p.groupId, p.pid)
+	return fmt.Sprintf("[%v] ", p.pid)
 }
 
 func (p *Process) Log(format string, v ...interface{}) {
@@ -84,7 +84,7 @@ func (p *Process) Start() {
 	p.Log("Process started")
 
 	// Write stdout & stderr to the
-	processLog := NewProcessLog(p.proto.out, p.groupId, p.pid)
+	processLog := NewProcessLog(p.proto.out, p.pid)
 	go processLog.Copy(stdout)
 	go processLog.Copy(stderr)
 
@@ -145,7 +145,7 @@ func (p *Process) Start() {
 
 		p.NextTick(func() {
 			for _, f := range p.exitHandlers {
-				f()
+				f(p)
 			}
 			p.EventLoop.Stop()
 		})
@@ -177,7 +177,7 @@ func (p *Process) Stop() {
 }
 
 // Register a function to be called when the process exists
-func (p *Process) OnExit(f func()) {
+func (p *Process) OnExit(f ProcessExitCallback) {
 	p.exitHandlers = append(p.exitHandlers, f)
 }
 
