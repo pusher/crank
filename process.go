@@ -1,8 +1,6 @@
 package main
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -190,28 +188,4 @@ func (p *Process) OnExit(f ProcessExitCallback) {
 func (p *Process) sendSignal(sig syscall.Signal) {
 	p.Log("Sending signal: %v", sig)
 	p.command.Process.Signal(sig)
-}
-
-func decodePipeCommand(data []byte) (err error, command string, args interface{}) {
-	var obj interface{}
-
-	if err = json.Unmarshal(data, &obj); err != nil {
-		return
-	} else {
-		switch arr := obj.(type) {
-		default:
-			err = errors.New("Invalid protocol")
-			return
-		case []interface{}:
-			args = arr[1]
-
-			switch c := arr[0].(type) {
-			case string:
-				command = c
-				return
-			default:
-				return
-			}
-		}
-	}
 }
