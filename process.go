@@ -20,7 +20,6 @@ func init() {
 }
 
 type Process struct {
-	*EventLoop
 	config      *ProcessConfig
 	external    *External
 	_sendSignal chan syscall.Signal
@@ -33,7 +32,6 @@ type Process struct {
 
 func NewProcess(config *ProcessConfig, external *External, started chan bool, exited chan *Process) *Process {
 	return &Process{
-		EventLoop:   NewEventLoop(),
 		config:      config,
 		external:    external,
 		_sendSignal: make(chan syscall.Signal),
@@ -143,11 +141,7 @@ func (p *Process) Start() {
 		}
 
 		p.onExited <- p
-		p.EventLoop.Stop()
 	}()
-
-	// Main run loop for process
-	go p.EventLoop.Run(time.Second, NoopCallback)
 }
 
 // Shutdown send a SIGTERM signal to the process and lets the process gracefully
@@ -162,13 +156,9 @@ func (p *Process) Kill() {
 
 // Stop stops the process with increased aggressiveness
 func (p *Process) Stop() {
-	p.NextTick(func() {
-		p.sendSignal(syscall.SIGTERM)
-	})
-	p.AddTimer(1*time.Second, func() {
-		p.sendSignal(syscall.SIGTERM)
-	})
-	p.AddTimer(2*time.Second, func() {
+	p.sendSignal(syscall.SIGTERM)
+	// TODO do we need to stop this timer if the process exits earlier?
+	time.AfterFunc(2*time.Second, func() {
 		p.sendSignal(syscall.SIGKILL)
 	})
 }
