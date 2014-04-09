@@ -20,7 +20,7 @@ type Manager struct {
 	proto          *Prototype
 	restart        chan bool
 	started        chan bool     // TODO pass PID
-	exited         chan *Process // TODO pass PID
+	exited         chan *Process
 	newProcess     *Process
 	currentProcess *Process
 	oldProcesses   processSet

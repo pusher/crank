@@ -21,26 +21,22 @@ func init() {
 
 type Process struct {
 	*EventLoop
-	proto        *Prototype
-	exitHandlers []ProcessExitCallback
-	_sendSignal  chan syscall.Signal
-	notify       *os.File
-	command      *exec.Cmd
-	Pid          int
-	onStarted    chan bool
-	onExited     chan *Process
+	proto       *Prototype
+	_sendSignal chan syscall.Signal
+	notify      *os.File
+	command     *exec.Cmd
+	Pid         int
+	onStarted   chan bool
+	onExited    chan *Process
 }
-
-type ProcessExitCallback func(p *Process)
 
 func NewProcess(proto *Prototype, started chan bool, exited chan *Process) *Process {
 	return &Process{
-		EventLoop:    NewEventLoop(),
-		proto:        proto,
-		exitHandlers: make([]ProcessExitCallback, 0),
-		_sendSignal:  make(chan syscall.Signal),
-		onStarted:    started,
-		onExited:     exited,
+		EventLoop:   NewEventLoop(),
+		proto:       proto,
+		_sendSignal: make(chan syscall.Signal),
+		onStarted:   started,
+		onExited:    exited,
 	}
 }
 
@@ -144,13 +140,8 @@ func (p *Process) Start() {
 			}
 		}
 
-		p.NextTick(func() {
-			for _, f := range p.exitHandlers {
-				f(p)
-			}
-			p.onExited <- p
-			p.EventLoop.Stop()
-		})
+		p.onExited <- p
+		p.EventLoop.Stop()
 	}()
 
 	// Main run loop for process
@@ -178,11 +169,6 @@ func (p *Process) Stop() {
 	p.AddTimer(2*time.Second, func() {
 		p.sendSignal(syscall.SIGKILL)
 	})
-}
-
-// Register a function to be called when the process exists
-func (p *Process) OnExit(f ProcessExitCallback) {
-	p.exitHandlers = append(p.exitHandlers, f)
 }
 
 func (p *Process) sendSignal(sig syscall.Signal) {
