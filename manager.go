@@ -17,6 +17,7 @@ func (self processSet) Rem(p *Process) {
 
 // Manager manages multiple process groups
 type Manager struct {
+	configPath     string
 	config         *ProcessConfig
 	external       *External
 	restart        chan bool
@@ -28,8 +29,15 @@ type Manager struct {
 	OnShutdown     sync.WaitGroup
 }
 
-func NewManager(config *ProcessConfig, external *External) *Manager {
+func NewManager(configPath string, external *External) *Manager {
+	config, err := LoadProcessConfig(configPath)
+	if err != nil {
+		// TODO handle empty files as in the design
+		log.Fatal(err)
+	}
+
 	manager := &Manager{
+		configPath:   configPath,
 		config:       config,
 		external:     external,
 		restart:      make(chan bool),
@@ -63,6 +71,7 @@ func (self *Manager) Run() {
 			}
 			self.currentProcess = self.newProcess
 			self.newProcess = nil
+			self.currentProcess.config.Save(self.configPath)
 		case process := <-self.exited:
 			self.onProcessExit(process)
 		}

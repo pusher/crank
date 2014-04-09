@@ -35,14 +35,7 @@ func main() {
 		defer logOutput.Close()
 	}
 
-	// Prototype is used to create new processes
-	processConfig, err := LoadProcessConfig(*configPath)
-	if err != nil {
-		// TODO handle empty files as in the design
-		log.Fatal(err)
-	}
-
-	manager := NewManager(processConfig, external)
+	manager := NewManager(*configPath, external)
 	go manager.Run()
 
 	// Restart processes on SIGHUP
