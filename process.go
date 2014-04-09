@@ -30,17 +30,19 @@ type Process struct {
 	command      *exec.Cmd
 	Pid          int
 	onStarted    chan bool
+	onExited     chan *Process
 }
 
 type ProcessExitCallback func(p *Process)
 
-func NewProcess(proto *Prototype, started chan bool) *Process {
+func NewProcess(proto *Prototype, started chan bool, exited chan *Process) *Process {
 	return &Process{
 		EventLoop:    NewEventLoop(),
 		proto:        proto,
 		exitHandlers: make([]ProcessExitCallback, 0),
 		_sendSignal:  make(chan syscall.Signal),
 		onStarted:    started,
+		onExited:     exited,
 	}
 }
 
@@ -148,6 +150,7 @@ func (p *Process) Start() {
 			for _, f := range p.exitHandlers {
 				f(p)
 			}
+			p.onExited <- p
 			p.EventLoop.Stop()
 		})
 	}()

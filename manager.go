@@ -18,8 +18,9 @@ func (self processSet) Rem(p *Process) {
 // Manager manages multiple process groups
 type Manager struct {
 	proto          *Prototype
-	restart        chan (bool)
-	started        chan (bool) // TODO pass PID
+	restart        chan bool
+	started        chan bool     // TODO pass PID
+	exited         chan *Process // TODO pass PID
 	newProcess     *Process
 	currentProcess *Process
 	oldProcesses   processSet
@@ -30,6 +31,8 @@ func NewManager(proto *Prototype, n int) *Manager {
 	manager := &Manager{
 		proto:        proto,
 		restart:      make(chan bool),
+		started:      make(chan bool),
+		exited:       make(chan *Process),
 		oldProcesses: make(processSet),
 	}
 	manager.OnShutdown.Add(1)
@@ -43,6 +46,7 @@ func (self *Manager) Run() {
 	}
 
 	for {
+		log.Print("[manager] For")
 		select {
 		case <-self.restart:
 			log.Print("[manager] Restarting the process")
@@ -57,6 +61,8 @@ func (self *Manager) Run() {
 			}
 			self.currentProcess = self.newProcess
 			self.newProcess = nil
+		case process := <-self.exited:
+			self.onProcessExit(process)
 		}
 	}
 }
@@ -85,9 +91,8 @@ func (self *Manager) startNewProcess() {
 		log.Print("[manager] New process is already being started")
 		return // TODO what do we want to do in this case
 	}
-	self.newProcess = NewProcess(self.proto, self.started)
+	self.newProcess = NewProcess(self.proto, self.started, self.exited)
 	self.newProcess.Start()
-	self.newProcess.OnExit(self.onProcessExit)
 }
 
 func (self *Manager) onProcessExit(process *Process) {
@@ -99,6 +104,7 @@ func (self *Manager) onProcessExit(process *Process) {
 	} else if process == self.currentProcess {
 		log.Print("[manager] Process exited in the current status")
 		self.currentProcess = nil
+		self.Shutdown()
 		// TODO: shutdown
 	} else {
 		log.Print("[manager] Process exited in the old status")
