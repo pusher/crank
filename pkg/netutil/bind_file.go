@@ -27,11 +27,17 @@ func BindFile(addr string) (file *os.File, err error) {
 	case "unix", "unixpacket":
 		var laddr *net.UnixAddr
 		var listener *net.UnixListener
+		path := u.Host + u.Path
 
-		laddr, err = net.ResolveUnixAddr(u.Scheme, u.Path)
+		laddr, err = net.ResolveUnixAddr(u.Scheme, path)
 		if err != nil {
 			return
 		}
+
+		// In case crank crashes the socket file wouldn't be cleaned up.
+		// We prefer having two crank running on the same socket file than
+		// none because the file exists.
+		os.Remove(path)
 
 		listener, err = net.ListenUnix(laddr.Network(), laddr)
 		if err != nil {
