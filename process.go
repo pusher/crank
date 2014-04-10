@@ -38,7 +38,7 @@ type Process struct {
 	*os.Process
 	state       ProcessState
 	config      *ProcessConfig
-	socket      *ExternalSocket
+	socket      *os.File
 	_sendSignal chan syscall.Signal
 	notify      *os.File
 	onStarted   chan bool
@@ -46,7 +46,7 @@ type Process struct {
 	shutdown    chan bool
 }
 
-func NewProcess(config *ProcessConfig, socket *ExternalSocket, started chan bool, exited chan *Process) *Process {
+func NewProcess(config *ProcessConfig, socket *os.File, started chan bool, exited chan *Process) *Process {
 	return &Process{
 		state:       PROCESS_NEW,
 		config:      config,
@@ -82,8 +82,8 @@ func (p *Process) Start() {
 	command.Env = append(command.Env, "NOTIFY_FD=4")
 
 	// Pass file descriptors to the process
-	command.ExtraFiles = append(command.ExtraFiles, p.socket.File) // 3: accept socket
-	command.ExtraFiles = append(command.ExtraFiles, notifySnd)     // 4: notify socket
+	command.ExtraFiles = append(command.ExtraFiles, p.socket)  // 3: accept socket
+	command.ExtraFiles = append(command.ExtraFiles, notifySnd) // 4: notify socket
 
 	stdout, _ := command.StdoutPipe()
 	stderr, _ := command.StderrPipe()

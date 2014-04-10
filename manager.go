@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"os"
 	"sync"
 )
 
@@ -19,7 +20,7 @@ func (self processSet) Rem(p *Process) {
 type Manager struct {
 	configPath     string
 	config         *ProcessConfig
-	socket         *ExternalSocket
+	socket         *os.File
 	restart        chan bool
 	started        chan bool // TODO pass PID
 	exited         chan *Process
@@ -27,9 +28,10 @@ type Manager struct {
 	currentProcess *Process
 	oldProcesses   processSet
 	OnShutdown     sync.WaitGroup
+	shuttingDown   bool
 }
 
-func NewManager(configPath string, socket *ExternalSocket) *Manager {
+func NewManager(configPath string, socket *os.File) *Manager {
 	config, err := LoadProcessConfig(configPath)
 	if err != nil {
 		// TODO handle empty files as in the design
@@ -56,7 +58,6 @@ func (self *Manager) Run() {
 	}
 
 	for {
-		log.Print("[manager] For")
 		select {
 		case <-self.restart:
 			log.Print("[manager] Restarting the process")
@@ -84,6 +85,11 @@ func (self *Manager) Restart() {
 }
 
 func (self *Manager) Shutdown() {
+	if self.shuttingDown {
+		log.Println("Trying to shutdown twice !")
+		return
+	}
+	self.shuttingDown = true
 	if self.newProcess != nil {
 		self.newProcess.Kill()
 	}

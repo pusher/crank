@@ -1,6 +1,7 @@
 package main
 
 import (
+	"./pkg/netutil"
 	"flag"
 	"log"
 	"syscall"
@@ -12,7 +13,7 @@ var (
 )
 
 func init() {
-	flag.StringVar(&addr, "addr", "", "external address to bind (e.g. ':80')")
+	flag.StringVar(&addr, "addr", "", "external address to bind (e.g. 'tcp://:80')")
 	flag.StringVar(&conf, "conf", "", "path to the process config file")
 }
 
@@ -28,7 +29,7 @@ func main() {
 		log.Fatal("Missing required flag: conf")
 	}
 
-	socket, err := BindExternalSocket(addr)
+	socket, err := netutil.ListenFile(addr)
 	if err != nil {
 		log.Fatal("OOPS", err)
 	}
@@ -38,7 +39,9 @@ func main() {
 	go manager.Run()
 
 	go OnSignal(manager.Restart, syscall.SIGHUP)
-	go OnSignal(manager.Shutdown, syscall.SIGTERM)
+	go OnSignal(manager.Shutdown, syscall.SIGTERM, syscall.SIGINT)
 
 	manager.OnShutdown.Wait()
+
+	log.Println("Bye!")
 }
