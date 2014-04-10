@@ -12,6 +12,21 @@ import (
 
 var DevNull *os.File
 
+const (
+	PROCESS_NEW = ProcessState(iota)
+	PROCESS_STARTING
+	PROCESS_RUNNING
+	PROCESS_STOPPING
+	PROCESS_STOPPED
+)
+
+type ProcessState int
+
+type ExitStatus struct {
+	code int
+	err  error
+}
+
 func init() {
 	var err error
 	if DevNull, err = os.Open("/dev/null"); err != nil {
@@ -21,6 +36,7 @@ func init() {
 
 type Process struct {
 	*os.Process
+	state       ProcessState
 	config      *ProcessConfig
 	external    *External
 	_sendSignal chan syscall.Signal
@@ -31,6 +47,7 @@ type Process struct {
 
 func NewProcess(config *ProcessConfig, external *External, started chan bool, exited chan *Process) *Process {
 	return &Process{
+		state:       PROCESS_NEW,
 		config:      config,
 		external:    external,
 		_sendSignal: make(chan syscall.Signal),
@@ -72,8 +89,10 @@ func (p *Process) Start() {
 
 	// Start process
 	if err = command.Start(); err != nil {
+		p.state = PROCESS_STOPPED
 		log.Fatal("Process start failed: ", err)
 	}
+	p.state = PROCESS_STARTING
 	p.Process = command.Process
 	p.Log("Process started")
 
@@ -84,6 +103,9 @@ func (p *Process) Start() {
 
 	// Close unused pipe-ends
 	notifySnd.Close()
+
+	started := make(chan bool)
+	exited := make(chan *ExitStatus)
 
 	// Read on pipe from child, and process commands
 	go func() {
@@ -107,8 +129,7 @@ func (p *Process) Start() {
 
 			switch command {
 			case "READY=1":
-				p.onStarted <- true
-				p.Log("After onStarted")
+				started <- true
 			default:
 				p.Log("Unknown command received: %v", command)
 			}
@@ -117,28 +138,54 @@ func (p *Process) Start() {
 
 	// Goroutine catches process exit
 	go func() {
-		if err := command.Wait(); err == nil {
-			p.Log("Exited cleanly")
-		} else {
-			if exiterr, ok := err.(*exec.ExitError); ok {
-				// The program has exited with an exit code != 0
-				if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-					// Prints the cause of exit - either exit status or signal should be
-					// != -1 (-1 means not exited or not signaled). See
-					// http://golang.org/pkg/syscall/#WaitStatus
-					p.Log(
-						"Unclean exit: %v (exit status: %v, signal: %v)",
-						err, status.ExitStatus(), int(status.Signal()),
-					)
-				} else {
-					p.Log("Unsupported ExitError: %v", err)
+		err := command.Wait()
+		exited <- getExitStatusCode(err)
+	}()
+
+	go func() {
+		for {
+			switch p.state {
+			case PROCESS_STARTING:
+				select {
+				case <-time.After(time.Duration(p.config.StartTimeout) * time.Millisecond):
+					p.Log("Process did not start in time, killing")
+					p.Kill()
+				case <-started:
+					p.Log("Process transitioning to running")
+					p.state = PROCESS_RUNNING
+					p.onStarted <- true
+				case <-exited:
+					p.Log("Process exited while starting")
+					p.state = PROCESS_STOPPED
 				}
-			} else {
-				p.Log("Unexpected exit: %v", err)
+
+			case PROCESS_RUNNING:
+				select {
+				case <-started:
+					p.Log("Process started twice")
+				case <-exited:
+					p.Log("Process exited while running")
+					p.state = PROCESS_STOPPED
+				}
+
+			case PROCESS_STOPPING:
+				select {
+				case <-time.After(time.Duration(p.config.StopTimeout) * time.Millisecond):
+					p.Log("Process did not stop in time, killing")
+					p.Kill()
+				case <-exited:
+					p.state = PROCESS_STOPPED
+				}
+
+			case PROCESS_STOPPED:
+				p.Log("Process stopped")
+				p.onExited <- p
+				return
+
+			default:
+				panic(fmt.Sprintf("BUG, unknown state %v", p.state))
 			}
 		}
-
-		p.onExited <- p
 	}()
 }
 
@@ -164,4 +211,25 @@ func (p *Process) Stop() {
 func (p *Process) sendSignal(sig syscall.Signal) {
 	p.Log("Sending signal: %v", sig)
 	p.Signal(sig)
+}
+
+func getExitStatusCode(err error) (s *ExitStatus) {
+	s = &ExitStatus{-1, err}
+	if err == nil {
+		return
+	}
+
+	exiterr, ok := err.(*exec.ExitError)
+	if !ok {
+		return
+	}
+	status, ok := exiterr.Sys().(syscall.WaitStatus)
+	if !ok {
+		return
+	}
+
+	s.code = status.ExitStatus()
+	s.err = nil
+
+	return
 }
