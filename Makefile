@@ -1,4 +1,4 @@
 
-crank: *.go logfile/*.go
+crank: *.go
 	go fmt ./...
 	go build -o $@

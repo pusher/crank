@@ -1,7 +1,6 @@
 package main
 
 import (
-	"./logfile"
 	"flag"
 	"log"
 	"syscall"
@@ -9,7 +8,6 @@ import (
 
 func main() {
 	var addr = flag.String("addr", "", "external address to bind (e.g. ':80')")
-	var outputFile = flag.String("out", "", "write stdout/err to file")
 	var configPath = flag.String("conf", "", "path to the process config file")
 	flag.Parse()
 
@@ -27,13 +25,6 @@ func main() {
 		log.Fatal("OOPS", err)
 	}
 	log.Print(external)
-
-	// Send process output to outputFile or stdout depending on whether flag passed
-	if len(*outputFile) > 0 {
-		logOutput := logfile.New(*outputFile)
-		go logOutput.Run()
-		defer logOutput.Close()
-	}
 
 	manager := NewManager(*configPath, external)
 	go manager.Run()
