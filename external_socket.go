@@ -8,14 +8,12 @@ import (
 
 // Binds to a TCP socket and makes it's Fd available for consumption.
 // It would be used for example to pass into a new forked process.
-type External struct {
-	addr    string
-	tcpAddr *net.TCPAddr
-	socket  *net.TCPListener
-	Fd      *os.File
+type ExternalSocket struct {
+	addr string
+	File *os.File
 }
 
-func NewExternal(addr string) (e *External, err error) {
+func BindExternalSocket(addr string) (e *ExternalSocket, err error) {
 	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
 	if err != nil {
 		return
@@ -29,9 +27,9 @@ func NewExternal(addr string) (e *External, err error) {
 		return
 	}
 
-	return &External{addr, tcpAddr, socket, file}, nil
+	return &ExternalSocket{addr, file}, nil
 }
 
-func (e *External) String() string {
+func (e *ExternalSocket) String() string {
 	return fmt.Sprintf("TCP socket listening on %v", e.addr)
 }

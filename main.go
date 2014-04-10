@@ -28,13 +28,13 @@ func main() {
 		log.Fatal("Missing required flag: conf")
 	}
 
-	external, err := NewExternal(addr)
+	socket, err := BindExternalSocket(addr)
 	if err != nil {
 		log.Fatal("OOPS", err)
 	}
-	log.Print(external)
+	log.Print(socket)
 
-	manager := NewManager(conf, external)
+	manager := NewManager(conf, socket)
 	go manager.Run()
 
 	// Restart processes on SIGHUP

@@ -19,7 +19,7 @@ func (self processSet) Rem(p *Process) {
 type Manager struct {
 	configPath     string
 	config         *ProcessConfig
-	external       *External
+	socket         *ExternalSocket
 	restart        chan bool
 	started        chan bool // TODO pass PID
 	exited         chan *Process
@@ -29,7 +29,7 @@ type Manager struct {
 	OnShutdown     sync.WaitGroup
 }
 
-func NewManager(configPath string, external *External) *Manager {
+func NewManager(configPath string, socket *ExternalSocket) *Manager {
 	config, err := LoadProcessConfig(configPath)
 	if err != nil {
 		// TODO handle empty files as in the design
@@ -39,7 +39,7 @@ func NewManager(configPath string, external *External) *Manager {
 	manager := &Manager{
 		configPath:   configPath,
 		config:       config,
-		external:     external,
+		socket:       socket,
 		restart:      make(chan bool),
 		started:      make(chan bool),
 		exited:       make(chan *Process),
@@ -61,7 +61,7 @@ func (self *Manager) Run() {
 		case <-self.restart:
 			log.Print("[manager] Restarting the process")
 			self.startNewProcess()
-			// TODO throttling
+			// TODO what's happening? what should we do?
 		case <-self.started:
 			log.Printf("[manager] Process %d started", self.newProcess.Pid)
 			if self.currentProcess != nil {
@@ -102,7 +102,7 @@ func (self *Manager) startNewProcess() {
 		log.Print("[manager] New process is already being started")
 		return // TODO what do we want to do in this case
 	}
-	self.newProcess = NewProcess(self.config, self.external, self.started, self.exited)
+	self.newProcess = NewProcess(self.config, self.socket, self.started, self.exited)
 	self.newProcess.Start()
 }
 
