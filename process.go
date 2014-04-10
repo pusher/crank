@@ -43,6 +43,7 @@ type Process struct {
 	notify      *os.File
 	onStarted   chan bool
 	onExited    chan *Process
+	shutdown    chan bool
 }
 
 func NewProcess(config *ProcessConfig, external *External, started chan bool, exited chan *Process) *Process {
@@ -53,6 +54,7 @@ func NewProcess(config *ProcessConfig, external *External, started chan bool, ex
 		_sendSignal: make(chan syscall.Signal),
 		onStarted:   started,
 		onExited:    exited,
+		shutdown:    make(chan bool),
 	}
 }
 
@@ -143,6 +145,7 @@ func (p *Process) Start() {
 	}()
 
 	go func() {
+		// TODO handle timeouts correctly - don't reset on each for loop iteration
 		for {
 			switch p.state {
 			case PROCESS_STARTING:
@@ -157,6 +160,10 @@ func (p *Process) Start() {
 				case <-exited:
 					p.Log("Process exited while starting")
 					p.state = PROCESS_STOPPED
+				case <-p.shutdown:
+					p.Log("Stopping in the starting state, sending SIGTERM")
+					p.sendSignal(syscall.SIGTERM)
+					p.state = PROCESS_STOPPING
 				}
 
 			case PROCESS_RUNNING:
@@ -166,6 +173,10 @@ func (p *Process) Start() {
 				case <-exited:
 					p.Log("Process exited while running")
 					p.state = PROCESS_STOPPED
+				case <-p.shutdown:
+					p.Log("Stopping in the running state, sending SIGTERM")
+					p.sendSignal(syscall.SIGTERM)
+					p.state = PROCESS_STOPPING
 				}
 
 			case PROCESS_STOPPING:
@@ -175,6 +186,8 @@ func (p *Process) Start() {
 					p.Kill()
 				case <-exited:
 					p.state = PROCESS_STOPPED
+				case <-p.shutdown:
+					p.Log("Stopping in the stopping state, noop")
 				}
 
 			case PROCESS_STOPPED:
@@ -189,23 +202,13 @@ func (p *Process) Start() {
 	}()
 }
 
-// Shutdown send a SIGTERM signal to the process and lets the process gracefully
-// shutdown.
-func (p *Process) Shutdown() {
-	p.sendSignal(syscall.SIGTERM)
-}
-
 func (p *Process) Kill() {
 	p.sendSignal(syscall.SIGKILL)
 }
 
 // Stop stops the process with increased aggressiveness
-func (p *Process) Stop() {
-	p.sendSignal(syscall.SIGTERM)
-	// TODO do we need to stop this timer if the process exits earlier?
-	time.AfterFunc(2*time.Second, func() {
-		p.sendSignal(syscall.SIGKILL)
-	})
+func (p *Process) Shutdown() {
+	p.shutdown <- true
 }
 
 func (p *Process) sendSignal(sig syscall.Signal) {
