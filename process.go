@@ -20,12 +20,11 @@ func init() {
 }
 
 type Process struct {
+	*os.Process
 	config      *ProcessConfig
 	external    *External
 	_sendSignal chan syscall.Signal
 	notify      *os.File
-	command     *exec.Cmd
-	Pid         int
 	onStarted   chan bool
 	onExited    chan *Process
 }
@@ -57,7 +56,6 @@ func (p *Process) Start() {
 	notifySnd := os.NewFile(uintptr(fds[1]), "--({_O_})--")
 
 	command := exec.Command(p.config.Command)
-	p.command = command
 
 	// Inherit the environment with which crank was run
 	command.Env = os.Environ()
@@ -76,7 +74,7 @@ func (p *Process) Start() {
 	if err = command.Start(); err != nil {
 		log.Fatal("Process start failed: ", err)
 	}
-	p.Pid = command.Process.Pid
+	p.Process = command.Process
 	p.Log("Process started")
 
 	// Write stdout & stderr to the
@@ -165,5 +163,5 @@ func (p *Process) Stop() {
 
 func (p *Process) sendSignal(sig syscall.Signal) {
 	p.Log("Sending signal: %v", sig)
-	p.command.Process.Signal(sig)
+	p.Signal(sig)
 }
