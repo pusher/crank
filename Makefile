@@ -1,4 +1,10 @@
 
-crank: *.go
+all: fmt crank
+
+fmt:
 	go fmt ./...
-	go build -o $@
+
+crank: **/*.go
+	cd cmd/crank && go build -o ../../$@
+
+.PHONY: all fmt
