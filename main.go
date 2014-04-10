@@ -6,27 +6,35 @@ import (
 	"syscall"
 )
 
+var (
+	addr string
+	conf string
+)
+
+func init() {
+	flag.StringVar(&addr, "addr", "", "external address to bind (e.g. ':80')")
+	flag.StringVar(&conf, "conf", "", "path to the process config file")
+}
+
 func main() {
-	var addr = flag.String("addr", "", "external address to bind (e.g. ':80')")
-	var configPath = flag.String("conf", "", "path to the process config file")
 	flag.Parse()
 
 	// TODO: If required should not be a flag?
 	// TODO: refactor this
-	if len(*addr) == 0 {
+	if addr == "" {
 		log.Fatal("Missing required flag: addr")
 	}
-	if len(*configPath) == 0 {
+	if conf == "" {
 		log.Fatal("Missing required flag: conf")
 	}
 
-	external, err := NewExternal(*addr)
+	external, err := NewExternal(addr)
 	if err != nil {
 		log.Fatal("OOPS", err)
 	}
 	log.Print(external)
 
-	manager := NewManager(*configPath, external)
+	manager := NewManager(conf, external)
 	go manager.Run()
 
 	// Restart processes on SIGHUP
