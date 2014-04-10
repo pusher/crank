@@ -37,14 +37,8 @@ func main() {
 	manager := NewManager(conf, socket)
 	go manager.Run()
 
-	// Restart processes on SIGHUP
-	go OnSignalLoop(func() {
-		manager.Restart()
-	}, syscall.SIGHUP)
-
-	go OnSignalLoop(func() {
-		manager.Shutdown()
-	}, syscall.SIGTERM)
+	go OnSignal(manager.Restart, syscall.SIGHUP)
+	go OnSignal(manager.Shutdown, syscall.SIGTERM)
 
 	manager.OnShutdown.Wait()
 }
