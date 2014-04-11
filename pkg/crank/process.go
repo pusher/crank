@@ -3,6 +3,7 @@ package crank
 import (
 	"../devnull"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -111,6 +112,9 @@ func (p *Process) Start() {
 
 		for {
 			n, err = notifyRcv.Read(data)
+			if err == io.EOF {
+				return
+			}
 			if err != nil {
 				p.Log("Error reading on pipe: %v", err)
 				return
