@@ -2,7 +2,6 @@ package crank
 
 import (
 	"encoding/json"
-	"io"
 	"os"
 	"time"
 )
@@ -14,7 +13,7 @@ type ProcessConfig struct {
 }
 
 func LoadProcessConfig(path string) (processConfig *ProcessConfig, err error) {
-	var reader io.ReadCloser
+	var reader *os.File
 	if reader, err = os.Open(path); err != nil {
 		return
 	}
