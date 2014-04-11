@@ -22,7 +22,7 @@ type Manager struct {
 	config         *ProcessConfig
 	socket         *os.File
 	restart        chan bool
-	started        chan bool // TODO pass PID
+	ready          chan bool // TODO pass PID
 	exited         chan *Process
 	newProcess     *Process
 	currentProcess *Process
@@ -43,7 +43,7 @@ func NewManager(configPath string, socket *os.File) *Manager {
 		config:       config,
 		socket:       socket,
 		restart:      make(chan bool),
-		started:      make(chan bool),
+		ready:        make(chan bool),
 		exited:       make(chan *Process),
 		oldProcesses: make(processSet),
 	}
@@ -63,8 +63,8 @@ func (self *Manager) Run() {
 			log.Print("[manager] Restarting the process")
 			self.startNewProcess()
 			// TODO what's happening? what should we do?
-		case <-self.started:
-			log.Printf("[manager] Process %d started", self.newProcess.Pid)
+		case <-self.ready:
+			log.Printf("[manager] Process %d is ready", self.newProcess.Pid)
 			if self.currentProcess != nil {
 				log.Printf("[manager] Shutting down the current process %d", self.currentProcess.Pid)
 				self.currentProcess.Shutdown()
@@ -108,7 +108,7 @@ func (self *Manager) startNewProcess() {
 		log.Print("[manager] New process is already being started")
 		return // TODO what do we want to do in this case
 	}
-	self.newProcess = NewProcess(self.config, self.socket, self.started, self.exited)
+	self.newProcess = NewProcess(self.config, self.socket, self.ready, self.exited)
 	self.newProcess.Start()
 }
 

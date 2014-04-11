@@ -15,7 +15,7 @@ var DevNull *os.File
 const (
 	PROCESS_NEW = ProcessState(iota)
 	PROCESS_STARTING
-	PROCESS_RUNNING
+	PROCESS_READY
 	PROCESS_STOPPING
 	PROCESS_STOPPED
 )
@@ -36,23 +36,23 @@ func init() {
 
 type Process struct {
 	*os.Process
-	state     ProcessState
-	config    *ProcessConfig
-	socket    *os.File
-	notify    *os.File
-	onStarted chan bool
-	onExited  chan *Process
-	shutdown  chan bool
+	state    ProcessState
+	config   *ProcessConfig
+	socket   *os.File
+	notify   *os.File
+	onReady  chan bool
+	onExited chan *Process
+	shutdown chan bool
 }
 
-func NewProcess(config *ProcessConfig, socket *os.File, started chan bool, exited chan *Process) *Process {
+func NewProcess(config *ProcessConfig, socket *os.File, ready chan bool, exited chan *Process) *Process {
 	return &Process{
-		state:     PROCESS_NEW,
-		config:    config,
-		socket:    socket,
-		onStarted: started,
-		onExited:  exited,
-		shutdown:  make(chan bool),
+		state:    PROCESS_NEW,
+		config:   config,
+		socket:   socket,
+		onReady:  ready,
+		onExited: exited,
+		shutdown: make(chan bool),
 	}
 }
 
@@ -104,7 +104,7 @@ func (p *Process) Start() {
 	// Close unused pipe-ends
 	notifySnd.Close()
 
-	started := make(chan bool)
+	ready := make(chan bool)
 	exited := make(chan *ExitStatus)
 	never := make(chan time.Time)
 
@@ -130,7 +130,7 @@ func (p *Process) Start() {
 
 			switch command {
 			case "READY=1":
-				started <- true
+				ready <- true
 			default:
 				p.Log("Unknown command received: %v", command)
 			}
@@ -159,10 +159,10 @@ func (p *Process) Start() {
 				case <-timeout:
 					p.Log("Process did not start in time, killing")
 					p.Kill()
-				case <-started:
-					p.Log("Process transitioning to running")
-					p.state = PROCESS_RUNNING
-					p.onStarted <- true
+				case <-ready:
+					p.Log("Process transitioning to ready")
+					p.state = PROCESS_READY
+					p.onReady <- true
 				case <-exited:
 					p.Log("Process exited while starting")
 					p.state = PROCESS_STOPPED
@@ -172,9 +172,9 @@ func (p *Process) Start() {
 					p.state = PROCESS_STOPPING
 				}
 
-			case PROCESS_RUNNING:
+			case PROCESS_READY:
 				select {
-				case <-started:
+				case <-ready:
 					p.Log("Process started twice")
 				case <-exited:
 					p.Log("Process exited while running")
