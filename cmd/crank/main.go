@@ -1,6 +1,7 @@
 package main
 
 import (
+	"../../pkg/crank"
 	"../../pkg/netutil"
 	"flag"
 	"log"
@@ -36,7 +37,7 @@ func main() {
 	}
 	log.Print(socket)
 
-	manager := NewManager(conf, socket)
+	manager := crank.NewManager(conf, socket)
 	go manager.Run()
 
 	go OnSignal(manager.Restart, syscall.SIGHUP)
