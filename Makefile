@@ -7,7 +7,7 @@ fmt:
 clean:
 	rm -f crank
 
-crank: **/*.go
+crank: cmd/crank/*.go pkg/**/*.go
 	cd cmd/crank && go build -o ../../$@
 
 .PHONY: all fmt clean
