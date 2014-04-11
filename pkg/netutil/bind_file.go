@@ -23,7 +23,7 @@ func BindFile(addr string) (file *os.File, err error) {
 			return
 		}
 		// NOTE: The name argument doesn't really matter apparently
-		file = os.NewFile(uintptr(fd), fmt.Sprintf("fd://%d", fd))
+		file = os.NewFile(uintptr(fd), addr)
 	case "unix", "unixpacket":
 		var laddr *net.UnixAddr
 		var listener *net.UnixListener
