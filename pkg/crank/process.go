@@ -140,13 +140,20 @@ func (p *Process) Start() {
 	}()
 
 	go func() {
-		// TODO handle timeouts correctly - don't reset on each for loop iteration
+		lastStateChange := time.Now()
+		changeState := func(newState ProcessState) {
+			lastStateChange = time.Now()
+			p.state = newState
+		}
+
 		for {
 			var timeout <-chan time.Time
 			switch p.state {
 			case PROCESS_STARTING:
 				if p.config.StartTimeout > 0 {
-					timeout = time.After(p.config.StartTimeout * time.Millisecond)
+					delay := (p.config.StartTimeout * time.Millisecond) -
+						time.Now().Sub(lastStateChange)
+					timeout = time.After(delay)
 				} else {
 					timeout = never
 				}
@@ -157,15 +164,15 @@ func (p *Process) Start() {
 					p.Kill()
 				case <-ready:
 					p.Log("Process transitioning to ready")
-					p.state = PROCESS_READY
+					changeState(PROCESS_READY)
 					p.onReady <- true
 				case <-exited:
 					p.Log("Process exited while starting")
-					p.state = PROCESS_STOPPED
+					changeState(PROCESS_STOPPED)
 				case <-p.shutdown:
 					p.Log("Stopping in the starting state, sending SIGTERM")
 					p.sendSignal(syscall.SIGTERM)
-					p.state = PROCESS_STOPPING
+					changeState(PROCESS_STOPPING)
 				}
 
 			case PROCESS_READY:
@@ -174,16 +181,18 @@ func (p *Process) Start() {
 					p.Log("Process started twice")
 				case <-exited:
 					p.Log("Process exited while running")
-					p.state = PROCESS_STOPPED
+					changeState(PROCESS_STOPPED)
 				case <-p.shutdown:
 					p.Log("Stopping in the running state, sending SIGTERM")
 					p.sendSignal(syscall.SIGTERM)
-					p.state = PROCESS_STOPPING
+					changeState(PROCESS_STOPPING)
 				}
 
 			case PROCESS_STOPPING:
 				if p.config.StopTimeout > 0 {
-					timeout = time.After(p.config.StopTimeout * time.Millisecond)
+					delay := (p.config.StopTimeout * time.Millisecond) -
+						time.Now().Sub(lastStateChange)
+					timeout = time.After(delay)
 				} else {
 					timeout = never
 				}
@@ -193,7 +202,7 @@ func (p *Process) Start() {
 					p.Log("Process did not stop in time, killing")
 					p.Kill()
 				case <-exited:
-					p.state = PROCESS_STOPPED
+					changeState(PROCESS_STOPPED)
 				case <-p.shutdown:
 					p.Log("Stopping in the stopping state, noop")
 				}
