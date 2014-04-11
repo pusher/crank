@@ -36,25 +36,23 @@ func init() {
 
 type Process struct {
 	*os.Process
-	state       ProcessState
-	config      *ProcessConfig
-	socket      *os.File
-	_sendSignal chan syscall.Signal
-	notify      *os.File
-	onStarted   chan bool
-	onExited    chan *Process
-	shutdown    chan bool
+	state     ProcessState
+	config    *ProcessConfig
+	socket    *os.File
+	notify    *os.File
+	onStarted chan bool
+	onExited  chan *Process
+	shutdown  chan bool
 }
 
 func NewProcess(config *ProcessConfig, socket *os.File, started chan bool, exited chan *Process) *Process {
 	return &Process{
-		state:       PROCESS_NEW,
-		config:      config,
-		socket:      socket,
-		_sendSignal: make(chan syscall.Signal),
-		onStarted:   started,
-		onExited:    exited,
-		shutdown:    make(chan bool),
+		state:     PROCESS_NEW,
+		config:    config,
+		socket:    socket,
+		onStarted: started,
+		onExited:  exited,
+		shutdown:  make(chan bool),
 	}
 }
 
