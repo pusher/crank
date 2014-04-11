@@ -108,6 +108,7 @@ func (p *Process) Start() {
 
 	started := make(chan bool)
 	exited := make(chan *ExitStatus)
+	never := make(chan time.Time)
 
 	// Read on pipe from child, and process commands
 	go func() {
@@ -147,10 +148,17 @@ func (p *Process) Start() {
 	go func() {
 		// TODO handle timeouts correctly - don't reset on each for loop iteration
 		for {
+			var timeout <-chan time.Time
 			switch p.state {
 			case PROCESS_STARTING:
+				if p.config.StartTimeout > 0 {
+					timeout = time.After(time.Duration(p.config.StartTimeout) * time.Millisecond)
+				} else {
+					timeout = never
+				}
+
 				select {
-				case <-time.After(time.Duration(p.config.StartTimeout) * time.Millisecond):
+				case <-timeout:
 					p.Log("Process did not start in time, killing")
 					p.Kill()
 				case <-started:
@@ -180,8 +188,14 @@ func (p *Process) Start() {
 				}
 
 			case PROCESS_STOPPING:
+				if p.config.StopTimeout > 0 {
+					timeout = time.After(time.Duration(p.config.StopTimeout) * time.Millisecond)
+				} else {
+					timeout = never
+				}
+
 				select {
-				case <-time.After(time.Duration(p.config.StopTimeout) * time.Millisecond):
+				case <-timeout:
 					p.Log("Process did not stop in time, killing")
 					p.Kill()
 				case <-exited:
