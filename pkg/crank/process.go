@@ -142,12 +142,23 @@ func (p *Process) Start() {
 	go func() {
 		lastStateChange := time.Now()
 		changeState := func(newState ProcessState) {
+			p.Log("State change from %v to %v", p.state, newState)
 			lastStateChange = time.Now()
 			p.state = newState
+
+			switch newState {
+			case PROCESS_READY:
+				p.onReady <- true
+			case PROCESS_STOPPING:
+				p.sendSignal(syscall.SIGTERM)
+			case PROCESS_STOPPED:
+				p.onExited <- p
+			}
 		}
 
 		for {
 			var timeout <-chan time.Time
+
 			switch p.state {
 			case PROCESS_STARTING:
 				if p.config.StartTimeout > 0 {
@@ -165,13 +176,11 @@ func (p *Process) Start() {
 				case <-ready:
 					p.Log("Process transitioning to ready")
 					changeState(PROCESS_READY)
-					p.onReady <- true
 				case <-exited:
 					p.Log("Process exited while starting")
 					changeState(PROCESS_STOPPED)
 				case <-p.shutdown:
 					p.Log("Stopping in the starting state, sending SIGTERM")
-					p.sendSignal(syscall.SIGTERM)
 					changeState(PROCESS_STOPPING)
 				}
 
@@ -184,7 +193,6 @@ func (p *Process) Start() {
 					changeState(PROCESS_STOPPED)
 				case <-p.shutdown:
 					p.Log("Stopping in the running state, sending SIGTERM")
-					p.sendSignal(syscall.SIGTERM)
 					changeState(PROCESS_STOPPING)
 				}
 
@@ -209,7 +217,6 @@ func (p *Process) Start() {
 
 			case PROCESS_STOPPED:
 				p.Log("Process stopped")
-				p.onExited <- p
 				return
 
 			default:
