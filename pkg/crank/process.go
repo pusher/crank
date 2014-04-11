@@ -1,6 +1,7 @@
 package crank
 
 import (
+	"../devnull"
 	"fmt"
 	"log"
 	"os"
@@ -9,8 +10,6 @@ import (
 	"syscall"
 	"time"
 )
-
-var DevNull *os.File
 
 const (
 	PROCESS_NEW = ProcessState(iota)
@@ -25,13 +24,6 @@ type ProcessState int
 type ExitStatus struct {
 	code int
 	err  error
-}
-
-func init() {
-	var err error
-	if DevNull, err = os.Open("/dev/null"); err != nil {
-		panic("could not open /dev/null: " + err.Error())
-	}
 }
 
 type Process struct {
@@ -85,7 +77,7 @@ func (p *Process) Start() {
 
 	stdout, _ := command.StdoutPipe()
 	stderr, _ := command.StderrPipe()
-	command.Stdin = DevNull
+	command.Stdin = devnull.File
 
 	// Start process
 	if err = command.Start(); err != nil {
