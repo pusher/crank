@@ -4,6 +4,7 @@ import (
 	"../../pkg/netutil"
 	"flag"
 	"log"
+	"os"
 	"syscall"
 )
 
@@ -13,8 +14,8 @@ var (
 )
 
 func init() {
-	flag.StringVar(&addr, "addr", "", "external address to bind (e.g. 'tcp://:80')")
-	flag.StringVar(&conf, "conf", "", "path to the process config file")
+	flag.StringVar(&addr, "addr", os.Getenv("CRANK_ADDR"), "external address to bind (e.g. 'tcp://:80')")
+	flag.StringVar(&conf, "conf", os.Getenv("CRANK_CONF"), "path to the process config file")
 }
 
 func main() {
