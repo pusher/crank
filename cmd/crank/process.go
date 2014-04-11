@@ -150,7 +150,7 @@ func (p *Process) Start() {
 			switch p.state {
 			case PROCESS_STARTING:
 				if p.config.StartTimeout > 0 {
-					timeout = time.After(time.Duration(p.config.StartTimeout) * time.Millisecond)
+					timeout = time.After(p.config.StartTimeout * time.Millisecond)
 				} else {
 					timeout = never
 				}
@@ -187,7 +187,7 @@ func (p *Process) Start() {
 
 			case PROCESS_STOPPING:
 				if p.config.StopTimeout > 0 {
-					timeout = time.After(time.Duration(p.config.StopTimeout) * time.Millisecond)
+					timeout = time.After(p.config.StopTimeout * time.Millisecond)
 				} else {
 					timeout = never
 				}

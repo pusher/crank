@@ -4,12 +4,13 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"time"
 )
 
 type ProcessConfig struct {
-	Command      string `json:"command"`
-	StartTimeout int    `json:"start_timeout"`
-	StopTimeout  int    `json:"stop_timeout"`
+	Command      string        `json:"command"`
+	StartTimeout time.Duration `json:"start_timeout"`
+	StopTimeout  time.Duration `json:"stop_timeout"`
 }
 
 func LoadProcessConfig(path string) (processConfig *ProcessConfig, err error) {
