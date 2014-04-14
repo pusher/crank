@@ -50,15 +50,16 @@ func main() {
 
 	flagSet := flag.NewFlagSet(os.Args[0]+" "+command, flag.ExitOnError)
 	defaultFlags(flagSet)
+
 	cmd := cmdSetup(flagSet)
 
-	if err = flagSet.Parse(flag.Args()); err != nil {
+	if err = flagSet.Parse(flag.Args()[1:]); err != nil {
 		fail("oops: %s\n", err)
 	}
 
 	client, err := rpc.Dial("unix", run)
 	if err != nil {
-		fail("Couldn't connect: %s\n", err)
+		fail("couldn't connect: %s\n", err)
 	}
 
 	if err = cmd(client); err != nil {
