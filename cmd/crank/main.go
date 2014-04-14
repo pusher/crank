@@ -55,7 +55,7 @@ func main() {
 
 	manager := crank.NewManager(conf, socket)
 
-	rpcApi := crank.NewRpcApi(manager)
+	rpcApi := crank.NewRPC(manager)
 	err = rpc.Register(rpcApi)
 	if err != nil {
 		log.Fatal("rpc registration failed", err)
