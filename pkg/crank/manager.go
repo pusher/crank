@@ -16,6 +16,16 @@ func (self processSet) Rem(p *Process) {
 	delete(self, p)
 }
 
+func (self processSet) ToArray() []*Process {
+	ary := make([]*Process, len(self))
+	i := 0
+	for v, _ := range self {
+		ary[i] = v
+		i += 1
+	}
+	return ary
+}
+
 // Manager manages multiple process groups
 type Manager struct {
 	configPath     string

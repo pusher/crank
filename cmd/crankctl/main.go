@@ -1,7 +1,7 @@
 package main
 
 import (
-	//	"../../pkg/crank"
+	"../../pkg/crank"
 	"flag"
 	"fmt"
 	"log"
@@ -20,6 +20,7 @@ func init() {
 
 	commands = make(map[string]CommandSetup)
 	commands["echo"] = Echo
+	commands["ps"] = Ps
 }
 
 func defaultFlags(flagSet *flag.FlagSet) {
@@ -78,5 +79,33 @@ func Echo(flag *flag.FlagSet) Command {
 
 		log.Println("echo reply: ", reply)
 		return
+	}
+}
+
+func Ps(flag *flag.FlagSet) Command {
+	query := crank.PsQuery{}
+	flag.BoolVar(&query.Start, "start", false, "lists the starting process")
+	flag.BoolVar(&query.Current, "current", false, "lists the current process")
+	flag.BoolVar(&query.Shutdown, "shutdown", false, "lists all processes shutting down")
+	return func(client *rpc.Client) (err error) {
+		var reply crank.PsReply
+
+		if err = client.Call("crank.Ps", &query, &reply); err != nil {
+			return
+		}
+
+		printProcess("start", reply.Start)
+		printProcess("current", reply.Current)
+		for _, v := range reply.Shutdown {
+			printProcess("shutdown", v)
+		}
+
+		return
+	}
+}
+
+func printProcess(t string, p *crank.Process) {
+	if p != nil {
+		fmt.Printf("%s: %d\n", t, p.Pid)
 	}
 }
