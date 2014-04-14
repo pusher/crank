@@ -4,7 +4,6 @@ import (
 	"../../pkg/crank"
 	"flag"
 	"fmt"
-	"log"
 	"net/rpc"
 	"os"
 )
@@ -18,8 +17,8 @@ var commands map[string]CommandSetup
 func init() {
 	defaultFlags(flag.CommandLine)
 
+	// TODO: show all the available commands in usage
 	commands = make(map[string]CommandSetup)
-	commands["echo"] = Echo
 	commands["ps"] = Ps
 }
 
@@ -67,27 +66,12 @@ func main() {
 	}
 }
 
-func Echo(flag *flag.FlagSet) Command {
-	var msg string
-	flag.StringVar(&msg, "msg", "foo", "message to send")
-
-	return func(client *rpc.Client) (err error) {
-		var reply string
-
-		if err = client.Call("crank.Echo", &msg, &reply); err != nil {
-			return
-		}
-
-		log.Println("echo reply: ", reply)
-		return
-	}
-}
-
 func Ps(flag *flag.FlagSet) Command {
 	query := crank.PsQuery{}
 	flag.BoolVar(&query.Start, "start", false, "lists the starting process")
 	flag.BoolVar(&query.Current, "current", false, "lists the current process")
 	flag.BoolVar(&query.Shutdown, "shutdown", false, "lists all processes shutting down")
+	flag.IntVar(&query.Pid, "pid", 0, "filters to only include that pid")
 	return func(client *rpc.Client) (err error) {
 		var reply crank.PsReply
 

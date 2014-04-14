@@ -14,21 +14,23 @@ func NewRPC(m *Manager) *RPC {
 	server := &RPC{rpc.NewServer(), m}
 	err := server.RegisterName("crank", server)
 	if err != nil {
-		panic(err)
+		panic(err) // Coding error
 	}
 	return server
 }
 
-func (self *RPC) Echo(msg *string, reply *string) error {
-	fmt.Println("Got ", *msg)
-	*reply = "Thanks !"
-	return nil
-}
-
-type PsQuery struct {
+// Used by other query structs
+type ProcessQuery struct {
 	Start    bool
 	Current  bool
 	Shutdown bool
+	Pid      int
+}
+
+type processFilter func(*Process) *Process
+
+type PsQuery struct {
+	ProcessQuery
 }
 
 type PsReply struct {
@@ -40,14 +42,41 @@ type PsReply struct {
 func (self *RPC) Ps(query *PsQuery, reply *PsReply) error {
 	all := !query.Start && !query.Current && !query.Shutdown
 
+	var filterPid processFilter
+	if query.Pid > 0 {
+		filterPid = func(p *Process) *Process {
+			if p == nil || p.Pid != query.Pid {
+				return nil
+			}
+			return p
+		}
+	} else {
+		filterPid = func(p *Process) *Process {
+			return p
+		}
+	}
+
 	if query.Start || all {
-		reply.Start = self.m.newProcess
+		reply.Start = filterPid(self.m.newProcess)
 	}
 	if query.Current || all {
-		reply.Current = self.m.currentProcess
+		reply.Current = filterPid(self.m.currentProcess)
 	}
 	if query.Shutdown || all {
-		reply.Shutdown = self.m.oldProcesses.ToArray()
+		reply.Shutdown = processSelect(self.m.oldProcesses.ToArray(), filterPid)
 	}
+
+	fmt.Println(query, reply)
 	return nil
+}
+
+func processSelect(ps []*Process, filter processFilter) []*Process {
+	var processes []*Process
+	for _, p := range ps {
+		p2 := filter(p)
+		if p2 != nil {
+			processes = append(processes, p2)
+		}
+	}
+	return processes
 }
