@@ -4,11 +4,13 @@ import (
 	"os"
 )
 
-var File *os.File
+var file *os.File
+var err error
 
 func init() {
-	var err error
-	if File, err = os.Open("/dev/null"); err != nil {
-		panic("could not open /dev/null: " + err.Error())
-	}
+	file, err = os.Open("/dev/null")
+}
+
+func File() (*os.File, error) {
+	return file, err
 }

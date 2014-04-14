@@ -78,7 +78,10 @@ func (p *Process) Start() {
 
 	stdout, _ := command.StdoutPipe()
 	stderr, _ := command.StderrPipe()
-	command.Stdin = devnull.File
+	command.Stdin, err = devnull.File()
+	if err != nil {
+		log.Fatal("Could not bind to /dev/null: ", err)
+	}
 
 	// Start process
 	if err = command.Start(); err != nil {
