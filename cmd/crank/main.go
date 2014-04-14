@@ -6,7 +6,6 @@ import (
 	"flag"
 	"log"
 	"net"
-	"net/rpc"
 	"os"
 	"syscall"
 )
@@ -55,11 +54,7 @@ func main() {
 
 	manager := crank.NewManager(conf, socket)
 
-	rpcApi := crank.NewRPC(manager)
-	err = rpc.Register(rpcApi)
-	if err != nil {
-		log.Fatal("rpc registration failed", err)
-	}
+	rpc := crank.NewRPC(manager)
 
 	go manager.Run()
 

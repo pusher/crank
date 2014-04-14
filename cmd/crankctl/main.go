@@ -23,7 +23,7 @@ func main() {
 	msg := flag.Arg(0)
 	var reply string
 
-	err = client.Call("RpcApi.Echo", msg, &reply)
+	err = client.Call("crank.Echo", msg, &reply)
 	if err != nil {
 		log.Fatal("echo error:", err)
 	}
