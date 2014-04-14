@@ -238,9 +238,9 @@ func (p *Process) Shutdown() {
 	p.shutdown <- true
 }
 
-func (p *Process) sendSignal(sig syscall.Signal) {
+func (p *Process) sendSignal(sig syscall.Signal) error {
 	p.Log("Sending signal: %v", sig)
-	p.Signal(sig)
+	return p.Signal(sig)
 }
 
 func getExitStatusCode(err error) (s *ExitStatus) {

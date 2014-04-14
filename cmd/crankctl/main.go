@@ -20,6 +20,7 @@ func init() {
 	// TODO: show all the available commands in usage
 	commands = make(map[string]CommandSetup)
 	commands["ps"] = Ps
+	commands["kill"] = Kill
 }
 
 func defaultFlags(flagSet *flag.FlagSet) {
@@ -68,10 +69,8 @@ func main() {
 
 func Ps(flag *flag.FlagSet) Command {
 	query := crank.PsQuery{}
-	flag.BoolVar(&query.Start, "start", false, "lists the starting process")
-	flag.BoolVar(&query.Current, "current", false, "lists the current process")
-	flag.BoolVar(&query.Shutdown, "shutdown", false, "lists all processes shutting down")
-	flag.IntVar(&query.Pid, "pid", 0, "filters to only include that pid")
+	processQueryFlags(&query.ProcessQuery, flag)
+
 	return func(client *rpc.Client) (err error) {
 		var reply crank.PsReply
 
@@ -87,6 +86,27 @@ func Ps(flag *flag.FlagSet) Command {
 
 		return
 	}
+}
+
+func Kill(flag *flag.FlagSet) Command {
+	query := crank.KillQuery{}
+	processQueryFlags(&query.ProcessQuery, flag)
+	signalValue := SignalValue{&query.Signal}
+	flag.Var(&signalValue, "signal", "signal to send to the processes")
+	flag.BoolVar(&query.Wait, "wait", false, "wait for the target processes to exit")
+
+	return func(client *rpc.Client) (err error) {
+		var reply crank.KillReply
+
+		return client.Call("crank.Kill", &query, &reply)
+	}
+}
+
+func processQueryFlags(query *crank.ProcessQuery, flag *flag.FlagSet) {
+	flag.BoolVar(&query.Start, "start", false, "lists the starting process")
+	flag.BoolVar(&query.Current, "current", false, "lists the current process")
+	flag.BoolVar(&query.Shutdown, "shutdown", false, "lists all processes shutting down")
+	flag.IntVar(&query.Pid, "pid", 0, "filters to only include that pid")
 }
 
 func printProcess(t string, p *crank.Process) {
