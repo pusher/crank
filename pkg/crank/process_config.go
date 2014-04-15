@@ -12,23 +12,23 @@ type ProcessConfig struct {
 	StopTimeout  time.Duration `json:"stop_timeout"`
 }
 
-func LoadProcessConfig(path string) (processConfig *ProcessConfig, err error) {
+func loadProcessConfig(path string) (config *ProcessConfig, err error) {
 	var reader *os.File
 	if reader, err = os.Open(path); err != nil {
 		return
 	}
 	defer reader.Close()
 
-	processConfig = new(ProcessConfig)
+	config = new(ProcessConfig)
 	jsonDecoder := json.NewDecoder(reader)
-	err = jsonDecoder.Decode(processConfig)
+	err = jsonDecoder.Decode(config)
 	return
 }
 
-func (self *ProcessConfig) Save(path string) error {
-	writer, err := os.Create(path)
-	if err != nil {
-		return err
+func (self *ProcessConfig) save(path string) (err error) {
+	var writer *os.File
+	if writer, err = os.Create(path); err != nil {
+		return
 	}
 	defer writer.Close()
 

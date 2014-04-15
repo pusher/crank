@@ -1,250 +1,137 @@
 package crank
 
 import (
-	"../devnull"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"os/exec"
-	"strings"
 	"syscall"
-	"time"
 )
 
-const (
-	PROCESS_NEW = ProcessState(iota)
-	PROCESS_STARTING
-	PROCESS_READY
-	PROCESS_STOPPING
-	PROCESS_STOPPED
-)
+type Process struct {
+	*os.Process
+	state          ProcessState
+	config         *ProcessConfig
+	bindSocket     *os.File
+	notifySocket   *os.File
+	logFile        *os.File
+	readyEvent     chan bool
+	exitEvent      chan ExitStatus
+	shutdownAction chan bool
+	processChange  chan<- *Process
+}
 
-type ProcessState int
+func newProcess(config *ProcessConfig, socket *os.File, processChange chan<- *Process) *Process {
+	p := &Process{
+		config:         config,
+		bindSocket:     socket,
+		processChange:  processChange,
+		readyEvent:     make(chan bool),
+		exitEvent:      make(chan ExitStatus), // TODO: Make use of those
+		shutdownAction: make(chan bool),
+	}
+	p.state = PROCESS_NEW(p)
+	return p
+}
+
+func (p *Process) String() string {
+	return fmt.Sprintf("[%v %s] ", p.Pid, p.state)
+}
+
+func (p *Process) State() ProcessState {
+	return p.state
+}
+
+func (p *Process) Config() *ProcessConfig {
+	return p.config
+}
+
+func (p *Process) Kill() error {
+	return p.Signal(syscall.SIGKILL)
+}
+
+// Tell the process to stop itself. A maximum delay is defined by the
+// StopTimeout process config.
+func (p *Process) Shutdown() {
+	p.shutdownAction <- true
+}
+
+func (p *Process) Signal(sig syscall.Signal) error {
+	p.log("Sending signal: %v", sig)
+	return p.Process.Signal(sig)
+}
+
+func (p *Process) log(format string, v ...interface{}) {
+	log.Print(p.String(), fmt.Sprintf(format, v...))
+}
+
+func (p *Process) startNotifier() (err error) {
+	fds, err := syscall.Socketpair(syscall.AF_LOCAL, syscall.SOCK_STREAM, 0)
+	if err != nil {
+		return
+	}
+	rcv := os.NewFile(uintptr(fds[0]), "notify:rcv") // File name is arbitrary
+	p.notifySocket = os.NewFile(uintptr(fds[1]), "notify:snd")
+
+	pn := newProcessNotifier(rcv, p.readyEvent)
+	go pn.run()
+
+	return
+}
+
+func (p *Process) startLogAggregator() (err error) {
+	rcv, snd, err := os.Pipe()
+	if err != nil {
+		return
+	}
+	p.logFile = snd
+
+	// Write stdout & stderr to the
+	processLog := newProcessLog(os.Stdout, p)
+	go processLog.copy(rcv)
+	return
+}
+
+func (p *Process) runReactorLoop() {
+	var err error
+
+	for err == nil {
+		err = p.state.run(p)
+	}
+
+	if err != REACTOR_STOP {
+		p.log("ERROR: ", err)
+		p.Kill()
+	}
+}
+
+func (p *Process) start() (err error) {
+	if err = p.startNotifier(); err != nil {
+		return
+	}
+
+	if err = p.startLogAggregator(); err != nil {
+		return
+	}
+
+	go p.runReactorLoop()
+	return
+}
+
+func (p *Process) changeState(newState NewProcessState) {
+	state := newState(p)
+	p.log("Changing state from %s to %s", p.state, state)
+	p.state = state
+	p.processChange <- p
+}
 
 type ExitStatus struct {
 	code int
 	err  error
 }
 
-type Process struct {
-	*os.Process
-	state    ProcessState
-	config   *ProcessConfig
-	socket   *os.File
-	notify   *os.File
-	onReady  chan bool
-	onExited chan *Process
-	shutdown chan bool
-}
-
-func NewProcess(config *ProcessConfig, socket *os.File, ready chan bool, exited chan *Process) *Process {
-	return &Process{
-		state:    PROCESS_NEW,
-		config:   config,
-		socket:   socket,
-		onReady:  ready,
-		onExited: exited,
-		shutdown: make(chan bool),
-	}
-}
-
-func (p *Process) String() string {
-	return fmt.Sprintf("[%v] ", p.Pid)
-}
-
-func (p *Process) Log(format string, v ...interface{}) {
-	log.Print(p.String(), fmt.Sprintf(format, v...))
-}
-
-func (p *Process) Start() {
-	fds, err := syscall.Socketpair(syscall.AF_LOCAL, syscall.SOCK_STREAM, 0)
-	if err != nil {
-		log.Fatal("Process start failed: ", err)
-	}
-	notifyRcv := os.NewFile(uintptr(fds[0]), "<-|->") // File name is arbitrary
-	notifySnd := os.NewFile(uintptr(fds[1]), "--({_O_})--")
-
-	command := exec.Command(p.config.Command)
-
-	// Inherit the environment with which crank was run
-	command.Env = os.Environ()
-	command.Env = append(command.Env, "LISTEN_FDS=1")
-	command.Env = append(command.Env, "NOTIFY_FD=4")
-
-	// Pass file descriptors to the process
-	command.ExtraFiles = append(command.ExtraFiles, p.socket)  // 3: accept socket
-	command.ExtraFiles = append(command.ExtraFiles, notifySnd) // 4: notify socket
-
-	stdout, _ := command.StdoutPipe()
-	stderr, _ := command.StderrPipe()
-	command.Stdin, err = devnull.File()
-	if err != nil {
-		log.Fatal("Could not bind to /dev/null: ", err)
-	}
-
-	// Start process
-	if err = command.Start(); err != nil {
-		p.state = PROCESS_STOPPED
-		log.Fatal("Process start failed: ", err)
-	}
-	p.state = PROCESS_STARTING
-	p.Process = command.Process
-	p.Log("Process started")
-
-	// Write stdout & stderr to the
-	processLog := NewProcessLog(os.Stdout, p.Pid)
-	go processLog.Copy(stdout)
-	go processLog.Copy(stderr)
-
-	// Close unused pipe-ends
-	notifySnd.Close()
-
-	ready := make(chan bool)
-	exited := make(chan *ExitStatus)
-	never := make(chan time.Time)
-
-	// Read on pipe from child, and process commands
-	go func() {
-		defer notifyRcv.Close()
-
-		var err error
-		var command string
-		var n int
-		data := make([]byte, 4096)
-
-		for {
-			n, err = notifyRcv.Read(data)
-			if err == io.EOF {
-				return
-			}
-			if err != nil {
-				p.Log("Error reading on pipe: %v", err)
-				return
-			}
-
-			command = strings.TrimSpace(string(data[:n]))
-
-			p.Log("Received command on pipe: %v", command)
-
-			switch command {
-			case "READY=1":
-				ready <- true
-			default:
-				p.Log("Unknown command received: %v", command)
-			}
-		}
-	}()
-
-	// Goroutine catches process exit
-	go func() {
-		err := command.Wait()
-		exited <- getExitStatusCode(err)
-	}()
-
-	go func() {
-		lastStateChange := time.Now()
-		changeState := func(newState ProcessState) {
-			p.Log("State change from %v to %v", p.state, newState)
-			lastStateChange = time.Now()
-			p.state = newState
-
-			switch newState {
-			case PROCESS_READY:
-				p.onReady <- true
-			case PROCESS_STOPPING:
-				p.sendSignal(syscall.SIGTERM)
-			case PROCESS_STOPPED:
-				p.onExited <- p
-			}
-		}
-
-		for {
-			var timeout <-chan time.Time
-
-			switch p.state {
-			case PROCESS_STARTING:
-				if p.config.StartTimeout > 0 {
-					delay := (p.config.StartTimeout * time.Millisecond) -
-						time.Now().Sub(lastStateChange)
-					timeout = time.After(delay)
-				} else {
-					timeout = never
-				}
-
-				select {
-				case <-timeout:
-					p.Log("Process did not start in time, killing")
-					p.Kill()
-				case <-ready:
-					p.Log("Process transitioning to ready")
-					changeState(PROCESS_READY)
-				case <-exited:
-					p.Log("Process exited while starting")
-					changeState(PROCESS_STOPPED)
-				case <-p.shutdown:
-					p.Log("Stopping in the starting state, sending SIGTERM")
-					changeState(PROCESS_STOPPING)
-				}
-
-			case PROCESS_READY:
-				select {
-				case <-ready:
-					p.Log("Process started twice")
-				case <-exited:
-					p.Log("Process exited while running")
-					changeState(PROCESS_STOPPED)
-				case <-p.shutdown:
-					p.Log("Stopping in the running state, sending SIGTERM")
-					changeState(PROCESS_STOPPING)
-				}
-
-			case PROCESS_STOPPING:
-				if p.config.StopTimeout > 0 {
-					delay := (p.config.StopTimeout * time.Millisecond) -
-						time.Now().Sub(lastStateChange)
-					timeout = time.After(delay)
-				} else {
-					timeout = never
-				}
-
-				select {
-				case <-timeout:
-					p.Log("Process did not stop in time, killing")
-					p.Kill()
-				case <-exited:
-					changeState(PROCESS_STOPPED)
-				case <-p.shutdown:
-					p.Log("Stopping in the stopping state, noop")
-				}
-
-			case PROCESS_STOPPED:
-				p.Log("Process stopped")
-				return
-
-			default:
-				panic(fmt.Sprintf("BUG, unknown state %v", p.state))
-			}
-		}
-	}()
-}
-
-func (p *Process) Kill() {
-	p.sendSignal(syscall.SIGKILL)
-}
-
-// Stop stops the process with increased aggressiveness
-func (p *Process) Shutdown() {
-	p.shutdown <- true
-}
-
-func (p *Process) sendSignal(sig syscall.Signal) error {
-	p.Log("Sending signal: %v", sig)
-	return p.Signal(sig)
-}
-
-func getExitStatusCode(err error) (s *ExitStatus) {
-	s = &ExitStatus{-1, err}
+func getExitStatusCode(err error) (s ExitStatus) {
+	s = ExitStatus{-1, err}
 	if err == nil {
 		return
 	}

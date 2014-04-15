@@ -64,7 +64,7 @@ func (self *RPC) Ps(query *PsQuery, reply *PsReply) error {
 		reply.Current = filterPid(self.m.currentProcess)
 	}
 	if query.Shutdown || all {
-		reply.Shutdown = processSelect(self.m.oldProcesses.ToArray(), filterPid)
+		reply.Shutdown = processSelect(self.m.oldProcesses.toArray(), filterPid)
 	}
 
 	fmt.Println(query, reply)
@@ -115,11 +115,11 @@ func (self *RPC) Kill(query *KillQuery, reply *KillReply) (err error) {
 		appendProcess(filterPid(self.m.currentProcess))
 	}
 	if query.Shutdown {
-		processes = append(processes, processSelect(self.m.oldProcesses.ToArray(), filterPid)...)
+		processes = append(processes, processSelect(self.m.oldProcesses.toArray(), filterPid)...)
 	}
 
 	for _, p := range processes {
-		p.sendSignal(query.Signal)
+		p.Signal(query.Signal)
 	}
 
 	fmt.Println(query, reply)

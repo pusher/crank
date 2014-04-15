@@ -8,15 +8,15 @@ import (
 
 type processSet map[*Process]bool
 
-func (self processSet) Add(p *Process) {
+func (self processSet) add(p *Process) {
 	self[p] = true
 }
 
-func (self processSet) Rem(p *Process) {
+func (self processSet) rem(p *Process) {
 	delete(self, p)
 }
 
-func (self processSet) ToArray() []*Process {
+func (self processSet) toArray() []*Process {
 	ary := make([]*Process, len(self))
 	i := 0
 	for v, _ := range self {
@@ -31,9 +31,8 @@ type Manager struct {
 	configPath     string
 	config         *ProcessConfig
 	socket         *os.File
-	restart        chan bool
-	ready          chan bool // TODO pass PID
-	exited         chan *Process
+	processChange  chan *Process
+	restartAction  chan bool
 	newProcess     *Process
 	currentProcess *Process
 	oldProcesses   processSet
@@ -42,23 +41,26 @@ type Manager struct {
 }
 
 func NewManager(configPath string, socket *os.File) *Manager {
-	config, err := LoadProcessConfig(configPath)
+	config, err := loadProcessConfig(configPath)
 	if err != nil {
 		// TODO handle empty files as in the design
 		log.Fatal(err)
 	}
 
 	manager := &Manager{
-		configPath:   configPath,
-		config:       config,
-		socket:       socket,
-		restart:      make(chan bool),
-		ready:        make(chan bool),
-		exited:       make(chan *Process),
-		oldProcesses: make(processSet),
+		configPath:    configPath,
+		config:        config,
+		socket:        socket,
+		processChange: make(chan *Process),
+		restartAction: make(chan bool),
+		oldProcesses:  make(processSet),
 	}
 	manager.OnShutdown.Add(1)
 	return manager
+}
+
+func (self *Manager) log(format string, v ...interface{}) {
+	log.Printf("[manager] "+format, v...)
 }
 
 // Run starts the event loop for the manager process
@@ -69,34 +71,41 @@ func (self *Manager) Run() {
 
 	for {
 		select {
-		case <-self.restart:
-			log.Print("[manager] Restarting the process")
+		case <-self.restartAction:
+			self.log("Restarting the process")
 			self.startNewProcess()
 			// TODO what's happening? what should we do?
-		case <-self.ready:
-			log.Printf("[manager] Process %d is ready", self.newProcess.Pid)
-			if self.currentProcess != nil {
-				log.Printf("[manager] Shutting down the current process %d", self.currentProcess.Pid)
-				self.currentProcess.Shutdown()
-				self.oldProcesses.Add(self.currentProcess)
+		case p := <-self.processChange:
+			log.Println(p)
+			switch p.state.(type) {
+			case *ProcessStateReady:
+				if p != self.newProcess {
+					panic("[manager] BUG, some other process is ready")
+				}
+				self.log("Process %d is ready", p.Pid)
+				if self.currentProcess != nil {
+					self.log("Shutting down the current process %d", self.currentProcess.Pid)
+					self.currentProcess.Shutdown()
+					self.oldProcesses.add(self.currentProcess)
+				}
+				self.currentProcess = self.newProcess
+				self.newProcess = nil
+				self.currentProcess.config.save(self.configPath)
+			case *ProcessStateStopped:
+				self.onProcessExit(p)
 			}
-			self.currentProcess = self.newProcess
-			self.newProcess = nil
-			self.currentProcess.config.Save(self.configPath)
-		case process := <-self.exited:
-			self.onProcessExit(process)
 		}
 	}
 }
 
 // Restart queues and starts excecuting a restart job to replace the old process group with a new one.
 func (self *Manager) Restart() {
-	self.restart <- true
+	self.restartAction <- true
 }
 
 func (self *Manager) Shutdown() {
 	if self.shuttingDown {
-		log.Println("Trying to shutdown twice !")
+		self.log("Trying to shutdown twice !")
 		return
 	}
 	self.shuttingDown = true
@@ -113,28 +122,28 @@ func (self *Manager) Shutdown() {
 }
 
 func (self *Manager) startNewProcess() {
-	log.Print("[manager] Starting a new process")
+	self.log("Starting a new process")
 	if self.newProcess != nil {
-		log.Print("[manager] New process is already being started")
+		self.log("New process is already being started")
 		return // TODO what do we want to do in this case
 	}
-	self.newProcess = NewProcess(self.config, self.socket, self.ready, self.exited)
-	self.newProcess.Start()
+	self.newProcess = newProcess(self.config, self.socket, self.processChange)
+	self.newProcess.start()
 }
 
-func (self *Manager) onProcessExit(process *Process) {
-	log.Printf("[manager] Process %d exited", process.Pid)
+func (self *Manager) onProcessExit(p *Process) {
+	self.log("Process %d exited", p.Pid)
 	// TODO process exit status?
-	if process == self.newProcess {
-		log.Print("[manager] Process exited in the new status")
+	if p == self.newProcess {
+		self.log("Process exited in the new status")
 		self.newProcess = nil
-	} else if process == self.currentProcess {
-		log.Print("[manager] Process exited in the current status")
+	} else if p == self.currentProcess {
+		self.log("Process exited in the current status")
 		self.currentProcess = nil
 		self.Shutdown()
 		// TODO: shutdown
 	} else {
-		log.Print("[manager] Process exited in the old status")
-		self.oldProcesses.Rem(process)
+		self.log("Process exited in the old status")
+		self.oldProcesses.rem(p)
 	}
 }

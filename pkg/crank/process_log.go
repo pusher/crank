@@ -8,17 +8,16 @@ import (
 	"time"
 )
 
-type ProcessLog struct {
-	out    io.Writer
-	prefix string
+type processLog struct {
+	out io.Writer
+	p   *Process
 }
 
-func NewProcessLog(out io.Writer, pid int) *ProcessLog {
-	prefix := fmt.Sprintf("[%v]", pid)
-	return &ProcessLog{out, prefix}
+func newProcessLog(out io.Writer, p *Process) *processLog {
+	return &processLog{out, p}
 }
 
-func (self *ProcessLog) Copy(r io.Reader) {
+func (self *processLog) copy(r io.Reader) {
 	// Use scanner to read lines from the input
 	scanner := bufio.NewScanner(r)
 	var line string
@@ -27,13 +26,13 @@ func (self *ProcessLog) Copy(r io.Reader) {
 		// e.g. Mar 18 10:08:13.839 (1)[69282] Logentry
 		line = fmt.Sprintln(
 			time.Now().Format(time.StampMilli),
-			self.prefix,
+			fmt.Sprintf("[%v]", self.p.Pid),
 			scanner.Text(),
 		)
 		self.out.Write([]byte(line))
 	}
 
 	if err := scanner.Err(); err != nil {
-		log.Fatal(err)
+		log.Println("ERROR:", err)
 	}
 }
