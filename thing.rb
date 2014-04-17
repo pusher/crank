@@ -1,47 +1,115 @@
+#!/usr/bin/env ruby
+
+require 'socket'
+
+require 'set'
 require 'bundler/setup'
 require 'eventmachine'
-require 'json'
-require 'set'
 
-class BiPipe
-  class PipeHandler < EM::Connection
-    def initialize(pipe = nil)
-      @pipe = pipe
+# Implements sd-notify
+# http://www.freedesktop.org/software/systemd/man/sd_notify.html
+module Sd extend self
+  class NullSocket
+    def noop(*) end
+    alias sendmsg noop
+    alias close_on_exec= noop
+  end
+
+  # MSG_NOSIGNAL doesn't exist on OSX
+  # It's used to avoid SIGPIPE on the process if the other end disappears
+  MSG_NOSIGNAL = Socket.const_defined?(:MSG_NOSIGNAL) ? Socket::MSG_NOSIGNAL : 0
+
+  FDS_START = 3
+
+  # Sends a message to the supervisor if LISTEN_FD/LISTEN_SOCKET is set.
+  # Otherwise it is a noop.
+  def notify(msg)
+    notify_socket.sendmsg cleanup(msg), MSG_NOSIGNAL
+  end
+
+  def notify_ready
+    notify "READY=1"
+  end
+
+  def notify_status(msg)
+    notify "STATUS=#{msg}"
+  end
+
+  def notify_errno(errno)
+    notify "ERRNO=#{errno}"
+  end
+
+  def notify_buserror(err)
+    notify "BUSERROR=#{err}"
+  end
+
+  def notify_mainpid(pid = Process.pid)
+    notify "MAINPID=#{pid}"
+  end
+
+  def notify_watchdog
+    notify "WATCHDOG=1"
+  end
+
+  def watchdog_enabled?
+    memoize(:watchdog_enabled?) do
+      break if ENV.has_key?('WATCHDOG_PID') && ENV.has_key?('WATCHDOG_USEC')
+      break if ENV['WATCHDOG_PID'].to_i != Process.pid
+      break if ENV['WATCHDOG_USEC'].to_i <= 0
+      ENV.delete 'WATCHDOG_PID'
+      true
     end
+  end
 
-    def receive_data(data)
-      parsed = JSON.parse(data)
-      @pipe.command(*parsed)
+  def watchdog_usec
+    memoize(:watchdog_usec, watchdog_enabled? && ENV.delete('WATCHDOG_USEC').to_i)
+  end
+
+  # Returns an array of IO if LISTEN_FDS is set.
+  def fds(crank_compat = true)
+    fds = []
+    if (crank_compat || ENV['LISTEN_PID'].to_i == Process.pid) &&
+       (fd_count = ENV['LISTEN_FDS'].to_i) > 0
+      ENV.delete('LISTEN_PID')
+      ENV.delete('LISTEN_FDS')
+      fds = fd_count.times
+        .map{|i| IO.new(FDS_START + i)}
+        .each{|io| io.close_on_exec = true }
     end
+    memoize(:fds, fds)
   end
 
-  def initialize(r, w)
-    @writer = EM.attach(IO.for_fd(w))
-    @reader = EM.attach(IO.for_fd(r), PipeHandler, self)
+  protected
+
+  def notify_socket
+    socket = if ((socket_path = ENV.delete('NOTIFY_SOCKET')))
+      UNIXSocket.open(socket_path)
+    # This is our own extension
+    elsif ((fd = ENV['NOTIFY_FD'])) # && ENV['NOTIFY_PID'].to_i == Process.pid)
+      UNIXSocket.for_fd fd.to_i
+    else
+      NullSocket.new
+    end
+    socket.close_on_exec = true
+    memoize(:notify_socket, socket)
   end
 
-  def command(c, args)
-    @on_command ? @on_command.call(c, args) : raise("Add on_command")
+  def cleanup(msg)
+    # Ensure msg doesn't contain a \n
+    msg.gsub("\n", '')
   end
 
-  def on_command(&blk); @on_command = blk; end
-
-  def send_command(command, args = {})
-    @writer.send_data(JSON.generate([command, args]))
+  def memoize(method, value=nil)
+    value = yield if block_given?
+    singleton_class.send(:define_method, method) { value }
+    value
   end
 end
 
 class CrankedServer
-  FD = 3
-  PIPE_READ = 4
-  PIPE_WRITE = 5
-
-  attr_reader :under_crank
-
   # Delegate must respond to
   # * start_accepting(fd)
   # * start_server(port)
-  # * stop_accepting(&onempty)
   # * close_gracefully(&onempty)
   # * close_forcefully(&onempty)
   def initialize(server_delegate, port)
@@ -50,26 +118,21 @@ class CrankedServer
     @accepting = false
     @stop_gracefully = true
 
-    @under_crank = ENV["LISTEN_FDS"] && ENV["LISTEN_FDS"].to_i == 1
+    @fds = Sd.fds
   end
 
   def run
-    if @under_crank
-      @pipe = BiPipe.new(PIPE_READ, PIPE_WRITE)
-      @pipe.on_command(&method(:pipe_command))
+    # Fallback to starting accepting immediately in the absence of crank
+    start_accepting()
 
-      @pipe.send_command("STARTED")
-    else
-      # Fallback to starting accepting immediately in the absence of crank
-      start_accepting()
-    end
+    Sd.notify_ready
   end
 
   def start_accepting
     return if @accepting
 
-    if @under_crank
-      @server.start_accepting(FD)
+    if @fds.any?
+      @server.start_accepting(@fds.first)
     else
       @server.start_server(@port)
     end
@@ -95,18 +158,6 @@ class CrankedServer
     @server.stop_accepting(&onempty)
     @accepting = false
     register_onempty(onempty) if onempty
-  end
-
-  private
-
-  def pipe_command(command, args)
-    puts "RUBY: Received pipe command #{command}, args: #{args}"
-    case command
-    when "START_ACCEPTING"
-      start_accepting
-    else
-      puts "RUBY: Unknown pipe command #{command}"
-    end
   end
 end
 
@@ -201,11 +252,6 @@ cranked_server = CrankedServer.new(server, 8000)
 
 EM.run do
   cranked_server.run
-
-  Signal.trap("HUP") do
-    puts "RUBY: HUP: Stop accepting (#{server.report})"
-    cranked_server.stop_accepting
-  end
 
   %w{INT TERM}.each do |sig|
     Signal.trap(sig) do
