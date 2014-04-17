@@ -70,15 +70,7 @@ func (p *Process) log(format string, v ...interface{}) {
 }
 
 func (p *Process) startLogAggregator() (err error) {
-	rcv, snd, err := os.Pipe()
-	if err != nil {
-		return
-	}
-	p.logFile = snd
 
-	// Write stdout & stderr to the
-	processLog := newProcessLog(os.Stdout, p)
-	go processLog.copy(rcv)
 	return
 }
 
@@ -88,7 +80,7 @@ func (p *Process) launch() (err error) {
 	}
 	defer p.notifySocket.Close()
 
-	if err = p.startLogAggregator(); err != nil {
+	if p.logFile, err = startProcessLogger(os.Stdout, p.String); err != nil {
 		return
 	}
 	defer p.logFile.Close()
