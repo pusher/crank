@@ -43,7 +43,7 @@ func runProcessNotifier(r *os.File, ready chan<- bool) {
 			return
 		}
 		if err != nil {
-			log.Printf("Error reading on pipe: %v", err)
+			fail("Reading on pipe", err)
 			return
 		}
 

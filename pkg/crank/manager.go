@@ -85,7 +85,8 @@ func (self *Manager) Run() {
 		switch p.StateName() {
 		case "READY":
 			if p != self.newProcess {
-				panic("[manager] BUG, some other process is ready")
+				fail("some other process is ready")
+				continue
 			}
 			self.log("Process %d is ready", p.Pid)
 			if self.currentProcess != nil {

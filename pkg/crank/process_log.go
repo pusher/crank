@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"time"
 )
@@ -44,6 +43,6 @@ func runProcesssLogger(out io.Writer, r *os.File, tag func() string) {
 	}
 
 	if err := scanner.Err(); err != nil {
-		log.Println("ERROR:", err)
+		fail(err)
 	}
 }
