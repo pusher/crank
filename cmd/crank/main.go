@@ -58,8 +58,8 @@ func main() {
 
 	go manager.Run()
 
-	go OnSignal(manager.Restart, syscall.SIGHUP)
-	go OnSignal(manager.Shutdown, syscall.SIGTERM, syscall.SIGINT)
+	go onSignal(manager.Restart, syscall.SIGHUP)
+	go onSignal(manager.Shutdown, syscall.SIGTERM, syscall.SIGINT)
 
 	go func() {
 		manager.OnShutdown.Wait()
