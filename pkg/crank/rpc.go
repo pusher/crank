@@ -28,16 +28,16 @@ type ProcessQuery struct {
 	Pid      int
 }
 
-type processFilter func(*ProcessSupervisor) *ProcessSupervisor
+type processFilter func(*Supervisor) *Supervisor
 
 type PsQuery struct {
 	ProcessQuery
 }
 
 type PsReply struct {
-	Start    *ProcessSupervisor
-	Current  *ProcessSupervisor
-	Shutdown []*ProcessSupervisor
+	Start    *Supervisor
+	Current  *Supervisor
+	Shutdown []*Supervisor
 }
 
 func (self *RPC) Ps(query *PsQuery, reply *PsReply) error {
@@ -45,14 +45,14 @@ func (self *RPC) Ps(query *PsQuery, reply *PsReply) error {
 
 	var filterPid processFilter
 	if query.Pid > 0 {
-		filterPid = func(p *ProcessSupervisor) *ProcessSupervisor {
+		filterPid = func(p *Supervisor) *Supervisor {
 			if p == nil || p.Pid() != query.Pid {
 				return nil
 			}
 			return p
 		}
 	} else {
-		filterPid = func(p *ProcessSupervisor) *ProcessSupervisor {
+		filterPid = func(p *Supervisor) *Supervisor {
 			return p
 		}
 	}
@@ -87,22 +87,22 @@ func (self *RPC) Kill(query *KillQuery, reply *KillReply) (err error) {
 		query.Signal = syscall.SIGTERM
 	}
 
-	var processes []*ProcessSupervisor
+	var processes []*Supervisor
 	var filterPid processFilter
 	if query.Pid > 0 {
-		filterPid = func(p *ProcessSupervisor) *ProcessSupervisor {
+		filterPid = func(p *Supervisor) *Supervisor {
 			if p == nil || p.Pid() != query.Pid {
 				return nil
 			}
 			return p
 		}
 	} else {
-		filterPid = func(p *ProcessSupervisor) *ProcessSupervisor {
+		filterPid = func(p *Supervisor) *Supervisor {
 			return p
 		}
 	}
 
-	appendProcess := func(p *ProcessSupervisor) {
+	appendProcess := func(p *Supervisor) {
 		if p != nil {
 			processes = append(processes, p)
 		}
@@ -126,8 +126,8 @@ func (self *RPC) Kill(query *KillQuery, reply *KillReply) (err error) {
 	return
 }
 
-func processSelect(ps []*ProcessSupervisor, filter processFilter) []*ProcessSupervisor {
-	var processes []*ProcessSupervisor
+func processSelect(ps []*Supervisor, filter processFilter) []*Supervisor {
+	var processes []*Supervisor
 	for _, p := range ps {
 		p2 := filter(p)
 		if p2 != nil {

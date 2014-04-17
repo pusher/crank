@@ -6,18 +6,18 @@ import (
 	"sync"
 )
 
-type supervisorSet map[*ProcessSupervisor]bool
+type supervisorSet map[*Supervisor]bool
 
-func (self supervisorSet) add(s *ProcessSupervisor) {
+func (self supervisorSet) add(s *Supervisor) {
 	self[s] = true
 }
 
-func (self supervisorSet) rem(s *ProcessSupervisor) {
+func (self supervisorSet) rem(s *Supervisor) {
 	delete(self, s)
 }
 
-func (self supervisorSet) toArray() []*ProcessSupervisor {
-	ary := make([]*ProcessSupervisor, len(self))
+func (self supervisorSet) toArray() []*Supervisor {
+	ary := make([]*Supervisor, len(self))
 	i := 0
 	for v, _ := range self {
 		ary[i] = v
@@ -31,10 +31,10 @@ type Manager struct {
 	configPath          string
 	config              *ProcessConfig
 	socket              *os.File
-	processNotification chan *ProcessSupervisor
+	processNotification chan *Supervisor
 	restartAction       chan bool
-	starting            *ProcessSupervisor
-	current             *ProcessSupervisor
+	starting            *Supervisor
+	current             *Supervisor
 	old                 supervisorSet
 	OnShutdown          sync.WaitGroup
 	shuttingDown        bool
@@ -51,7 +51,7 @@ func NewManager(configPath string, socket *os.File) *Manager {
 		configPath:          configPath,
 		config:              config,
 		socket:              socket,
-		processNotification: make(chan *ProcessSupervisor),
+		processNotification: make(chan *Supervisor),
 		restartAction:       make(chan bool),
 		old:                 make(supervisorSet),
 	}
@@ -132,11 +132,11 @@ func (self *Manager) startNewProcess() {
 		self.log("New process is already being started")
 		return // TODO what do we want to do in this case
 	}
-	self.starting = NewProcessSupervisor(self.config, self.socket, self.processNotification)
+	self.starting = NewSupervisor(self.config, self.socket, self.processNotification)
 	self.starting.run()
 }
 
-func (self *Manager) onProcessExit(s *ProcessSupervisor) {
+func (self *Manager) onProcessExit(s *Supervisor) {
 	self.log("Process %d exited", s.Pid())
 	// TODO process exit status?
 	if s == self.starting {

@@ -11,12 +11,12 @@ import (
 // Base interface
 
 type ProcessState func() (string, ProcessStateTransition)
-type ProcessStateTransition func(*ProcessSupervisor) ProcessState
+type ProcessStateTransition func(*Supervisor) ProcessState
 
 // States
 
 func PROCESS_NEW() (string, ProcessStateTransition) {
-	return "NEW", func(s *ProcessSupervisor) ProcessState {
+	return "NEW", func(s *Supervisor) ProcessState {
 		var err error
 		s.process, err = startProcess(s.config.Command, s.config.Args, s.socket, s.readyEvent, s.exitEvent)
 		if err != nil {
@@ -27,7 +27,7 @@ func PROCESS_NEW() (string, ProcessStateTransition) {
 }
 
 func PROCESS_STARTING() (string, ProcessStateTransition) {
-	return "STARTING", func(s *ProcessSupervisor) ProcessState {
+	return "STARTING", func(s *Supervisor) ProcessState {
 		var timeout <-chan time.Time
 
 		if s.config.StartTimeout > 0 {
@@ -54,7 +54,7 @@ func PROCESS_STARTING() (string, ProcessStateTransition) {
 }
 
 func PROCESS_READY() (string, ProcessStateTransition) {
-	return "READY", func(s *ProcessSupervisor) ProcessState {
+	return "READY", func(s *Supervisor) ProcessState {
 		select {
 		case <-s.readyEvent:
 			s.log("Process started twice, ignoring")
@@ -69,7 +69,7 @@ func PROCESS_READY() (string, ProcessStateTransition) {
 }
 
 func PROCESS_STOPPING() (string, ProcessStateTransition) {
-	return "STOPPING", func(s *ProcessSupervisor) ProcessState {
+	return "STOPPING", func(s *Supervisor) ProcessState {
 		var timeout <-chan time.Time
 
 		if s.config.StopTimeout > 0 {
@@ -103,7 +103,7 @@ func PROCESS_FAILED() (string, ProcessStateTransition) {
 
 // Reactor
 
-type ProcessSupervisor struct {
+type Supervisor struct {
 	process *Process
 	config  *ProcessConfig
 	socket  *os.File
@@ -119,11 +119,11 @@ type ProcessSupervisor struct {
 	readyEvent chan bool
 	exitEvent  chan ExitStatus
 	// process update notifications
-	processNotification chan<- *ProcessSupervisor
+	processNotification chan<- *Supervisor
 }
 
-func NewProcessSupervisor(config *ProcessConfig, socket *os.File, processNotification chan<- *ProcessSupervisor) *ProcessSupervisor {
-	return &ProcessSupervisor{
+func NewSupervisor(config *ProcessConfig, socket *os.File, processNotification chan<- *Supervisor) *Supervisor {
+	return &Supervisor{
 		config:              config,
 		socket:              socket,
 		state:               PROCESS_NEW,
@@ -138,7 +138,7 @@ func NewProcessSupervisor(config *ProcessConfig, socket *os.File, processNotific
 	}
 }
 
-func (s *ProcessSupervisor) run() {
+func (s *Supervisor) run() {
 	for {
 		s.stateName, s.stateTransition = s.state()
 
@@ -158,7 +158,7 @@ func (s *ProcessSupervisor) run() {
 	}
 }
 
-func (s *ProcessSupervisor) log(format string, v ...interface{}) {
+func (s *Supervisor) log(format string, v ...interface{}) {
 	if s.process != nil {
 		log.Printf("s:"+s.process.String()+format, v...)
 	} else {
@@ -166,7 +166,7 @@ func (s *ProcessSupervisor) log(format string, v ...interface{}) {
 	}
 }
 
-func (s *ProcessSupervisor) Pid() int {
+func (s *Supervisor) Pid() int {
 	if s.process != nil {
 		return s.process.Pid
 	} else {
@@ -174,17 +174,17 @@ func (s *ProcessSupervisor) Pid() int {
 	}
 }
 
-func (s *ProcessSupervisor) Start() {
+func (s *Supervisor) Start() {
 	s.startAction <- true
 }
 
 // Tell the process to stop itself. A maximum delay is defined by the
 // StopTimeout process config.
-func (s *ProcessSupervisor) Shutdown() {
+func (s *Supervisor) Shutdown() {
 	s.shutdownAction <- true
 }
 
-func (s *ProcessSupervisor) Signal(sig syscall.Signal) error {
+func (s *Supervisor) Signal(sig syscall.Signal) error {
 	if s.process == nil {
 		return fmt.Errorf("Process missing")
 	}
@@ -192,6 +192,6 @@ func (s *ProcessSupervisor) Signal(sig syscall.Signal) error {
 	return s.process.Signal(sig)
 }
 
-func (s *ProcessSupervisor) Kill() error {
+func (s *Supervisor) Kill() error {
 	return s.Signal(syscall.SIGKILL)
 }
