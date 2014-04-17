@@ -6,18 +6,18 @@ import (
 	"sync"
 )
 
-type processSet map[*Process]bool
+type supervisorSet map[*ProcessSupervisor]bool
 
-func (self processSet) add(p *Process) {
-	self[p] = true
+func (self supervisorSet) add(s *ProcessSupervisor) {
+	self[s] = true
 }
 
-func (self processSet) rem(p *Process) {
-	delete(self, p)
+func (self supervisorSet) rem(s *ProcessSupervisor) {
+	delete(self, s)
 }
 
-func (self processSet) toArray() []*Process {
-	ary := make([]*Process, len(self))
+func (self supervisorSet) toArray() []*ProcessSupervisor {
+	ary := make([]*ProcessSupervisor, len(self))
 	i := 0
 	for v, _ := range self {
 		ary[i] = v
@@ -31,11 +31,11 @@ type Manager struct {
 	configPath          string
 	config              *ProcessConfig
 	socket              *os.File
-	processNotification chan *Process
+	processNotification chan *ProcessSupervisor
 	restartAction       chan bool
-	newProcess          *Process
-	currentProcess      *Process
-	oldProcesses        processSet
+	starting            *ProcessSupervisor
+	current             *ProcessSupervisor
+	old                 supervisorSet
 	OnShutdown          sync.WaitGroup
 	shuttingDown        bool
 }
@@ -51,9 +51,9 @@ func NewManager(configPath string, socket *os.File) *Manager {
 		configPath:          configPath,
 		config:              config,
 		socket:              socket,
-		processNotification: make(chan *Process),
+		processNotification: make(chan *ProcessSupervisor),
 		restartAction:       make(chan bool),
-		oldProcesses:        make(processSet),
+		old:                 make(supervisorSet),
 	}
 	manager.OnShutdown.Add(1)
 	return manager
@@ -82,22 +82,22 @@ func (self *Manager) Run() {
 
 	for {
 		p := <-self.processNotification
-		switch p.StateName() {
+		switch p.stateName {
 		case "READY":
-			if p != self.newProcess {
+			if p != self.starting {
 				fail("some other process is ready")
 				continue
 			}
 			self.log("Process %d is ready", p.Pid)
-			if self.currentProcess != nil {
-				self.log("Shutting down the current process %d", self.currentProcess.Pid)
-				self.currentProcess.Shutdown()
-				self.oldProcesses.add(self.currentProcess)
+			if self.current != nil {
+				self.log("Shutting down the current process %d", self.current.Pid)
+				self.current.Shutdown()
+				self.old.add(self.current)
 			}
-			self.currentProcess = self.newProcess
-			self.newProcess = nil
-			self.currentProcess.config.save(self.configPath)
-		case "STOPPED":
+			self.current = self.starting
+			self.starting = nil
+			self.current.config.save(self.configPath)
+		case "STOPPED", "FAILED":
 			self.onProcessExit(p)
 		}
 	}
@@ -114,13 +114,13 @@ func (self *Manager) Shutdown() {
 		return
 	}
 	self.shuttingDown = true
-	if self.newProcess != nil {
-		self.newProcess.Kill()
+	if self.starting != nil {
+		self.starting.Kill()
 	}
-	if self.currentProcess != nil {
-		self.currentProcess.Kill()
+	if self.current != nil {
+		self.current.Kill()
 	}
-	for process, _ := range self.oldProcesses {
+	for process, _ := range self.old {
 		process.Kill()
 	}
 	self.OnShutdown.Done()
@@ -128,27 +128,27 @@ func (self *Manager) Shutdown() {
 
 func (self *Manager) startNewProcess() {
 	self.log("Starting a new process")
-	if self.newProcess != nil {
+	if self.starting != nil {
 		self.log("New process is already being started")
 		return // TODO what do we want to do in this case
 	}
-	self.newProcess = newProcess(self.config, self.socket, self.processNotification)
-	self.newProcess.Start()
+	self.starting = NewProcessSupervisor(self.config, self.socket, self.processNotification)
+	self.starting.run()
 }
 
-func (self *Manager) onProcessExit(p *Process) {
-	self.log("Process %d exited", p.Pid)
+func (self *Manager) onProcessExit(s *ProcessSupervisor) {
+	self.log("Process %d exited", s.Pid())
 	// TODO process exit status?
-	if p == self.newProcess {
+	if s == self.starting {
 		self.log("Process exited in the new status")
-		self.newProcess = nil
-	} else if p == self.currentProcess {
+		self.starting = nil
+	} else if s == self.current {
 		self.log("Process exited in the current status")
-		self.currentProcess = nil
+		self.current = nil
 		self.Shutdown()
 		// TODO: shutdown
 	} else {
 		self.log("Process exited in the old status")
-		self.oldProcesses.rem(p)
+		self.old.rem(s)
 	}
 }

@@ -2,16 +2,11 @@ package crank
 
 import (
 	"fmt"
+	"log"
+	"os"
+	"syscall"
 	"time"
 )
-
-// Used as an alternative to time.After() to never get a timeout on a
-// channel select.
-var neverChan <-chan time.Time
-
-func init() {
-	neverChan = make(chan time.Time)
-}
 
 // Base interface
 
@@ -22,10 +17,10 @@ type ProcessStateTransition func(*ProcessSupervisor) ProcessState
 
 func PROCESS_NEW() (string, ProcessStateTransition) {
 	return "NEW", func(s *ProcessSupervisor) ProcessState {
-		<-s.startAction
-		err := s.process.launch()
+		var err error
+		s.process, err = startProcess(s.config.Command, s.config.Args, s.socket, s.readyEvent, s.exitEvent)
 		if err != nil {
-			return PROCESS_STOPPED
+			return PROCESS_FAILED
 		}
 		return PROCESS_STARTING
 	}
@@ -33,11 +28,10 @@ func PROCESS_NEW() (string, ProcessStateTransition) {
 
 func PROCESS_STARTING() (string, ProcessStateTransition) {
 	return "STARTING", func(s *ProcessSupervisor) ProcessState {
-		var enteredAt = time.Now()
 		var timeout <-chan time.Time
 
-		if s.process.config.StartTimeout > 0 {
-			delay := (s.process.config.StartTimeout * time.Millisecond) - time.Now().Sub(enteredAt)
+		if s.config.StartTimeout > 0 {
+			delay := s.config.StartTimeout - time.Now().Sub(s.lastTransition)
 			timeout = time.After(delay)
 		} else {
 			timeout = neverChan
@@ -46,13 +40,14 @@ func PROCESS_STARTING() (string, ProcessStateTransition) {
 		select {
 		case <-timeout:
 			fmt.Errorf("Process did not start in time")
-			return PROCESS_STOPPED // TODO ok or kill?
+			s.Kill()
+			return PROCESS_FAILED
 		case <-s.readyEvent:
 			return PROCESS_READY
 		case <-s.exitEvent:
 			return PROCESS_STOPPED
 		case <-s.shutdownAction:
-			s.process.stop()
+			s.Signal(syscall.SIGTERM)
 			return PROCESS_STOPPING
 		}
 	}
@@ -62,12 +57,12 @@ func PROCESS_READY() (string, ProcessStateTransition) {
 	return "READY", func(s *ProcessSupervisor) ProcessState {
 		select {
 		case <-s.readyEvent:
-			s.process.log("Process started twice, ignoring")
+			s.log("Process started twice, ignoring")
 			return PROCESS_READY // TODO ok or kill?
 		case <-s.exitEvent:
-			return PROCESS_STOPPED
+			return PROCESS_FAILED
 		case <-s.shutdownAction:
-			s.process.stop()
+			s.Signal(syscall.SIGTERM)
 			return PROCESS_STOPPING
 		}
 	}
@@ -75,11 +70,10 @@ func PROCESS_READY() (string, ProcessStateTransition) {
 
 func PROCESS_STOPPING() (string, ProcessStateTransition) {
 	return "STOPPING", func(s *ProcessSupervisor) ProcessState {
-		var enteredAt = time.Now()
 		var timeout <-chan time.Time
 
-		if s.process.config.StopTimeout > 0 {
-			delay := (s.process.config.StopTimeout * time.Millisecond) - time.Now().Sub(enteredAt)
+		if s.config.StopTimeout > 0 {
+			delay := s.config.StopTimeout - time.Now().Sub(s.lastTransition)
 			timeout = time.After(delay)
 		} else {
 			timeout = neverChan
@@ -88,13 +82,13 @@ func PROCESS_STOPPING() (string, ProcessStateTransition) {
 		select {
 		case <-timeout:
 			fmt.Errorf("Process did not stop in time")
-			s.process.Kill()
-			return PROCESS_STOPPING
-		case <-s.exitEvent:
+			s.Kill()
+			return PROCESS_FAILED
+		case <-s.exitEvent: // TODO: Record exit status
 			return PROCESS_STOPPED
 		case <-s.shutdownAction:
-			s.process.log("Stopping in the stopping state, ignoring")
-			return PROCESS_STOPPING // TODO ok?
+			s.log("Stopping in the stopping state, ignoring")
+			return PROCESS_STOPPING
 		}
 	}
 }
@@ -103,14 +97,21 @@ func PROCESS_STOPPED() (string, ProcessStateTransition) {
 	return "STOPPED", nil
 }
 
+func PROCESS_FAILED() (string, ProcessStateTransition) {
+	return "FAILED", nil
+}
+
 // Reactor
 
 type ProcessSupervisor struct {
 	process *Process
+	config  *ProcessConfig
+	socket  *os.File
 	// state
 	state           ProcessState
 	stateName       string
 	stateTransition ProcessStateTransition
+	lastTransition  time.Time
 	// actions
 	startAction    chan bool
 	shutdownAction chan bool
@@ -118,15 +119,17 @@ type ProcessSupervisor struct {
 	readyEvent chan bool
 	exitEvent  chan ExitStatus
 	// process update notifications
-	processNotification chan<- *Process
+	processNotification chan<- *ProcessSupervisor
 }
 
-func NewProcessSupervisor(process *Process, state ProcessState, processNotification chan<- *Process) *ProcessSupervisor {
+func NewProcessSupervisor(config *ProcessConfig, socket *os.File, processNotification chan<- *ProcessSupervisor) *ProcessSupervisor {
 	return &ProcessSupervisor{
-		process:             process,
-		state:               state,
+		config:              config,
+		socket:              socket,
+		state:               PROCESS_NEW,
 		stateName:           "",
 		stateTransition:     nil,
+		lastTransition:      time.Now(),
 		startAction:         make(chan bool),
 		shutdownAction:      make(chan bool),
 		readyEvent:          make(chan bool),
@@ -135,17 +138,60 @@ func NewProcessSupervisor(process *Process, state ProcessState, processNotificat
 	}
 }
 
-func (self *ProcessSupervisor) run() {
+func (s *ProcessSupervisor) run() {
 	for {
-		self.stateName, self.stateTransition = self.state()
+		s.stateName, s.stateTransition = s.state()
 
-		self.process.log("Changed state")
-		self.processNotification <- self.process
+		s.log("Changed state")
+		s.processNotification <- s
 
-		if self.stateTransition != nil {
-			self.state = self.stateTransition(self)
+		if s.stateTransition != nil {
+			// oldState := s.state
+			s.state = s.stateTransition(s)
+			// FIXME: Cannot compare functions
+			// if oldState != s.state {
+			// 	s.lastTransition = time.Now()
+			// }
 		} else {
 			return
 		}
 	}
+}
+
+func (s *ProcessSupervisor) log(format string, v ...interface{}) {
+	if s.process != nil {
+		log.Printf("s:"+s.process.String()+format, v...)
+	} else {
+		log.Printf("s:[NIL] "+format, v...)
+	}
+}
+
+func (s *ProcessSupervisor) Pid() int {
+	if s.process != nil {
+		return s.process.Pid
+	} else {
+		return -1
+	}
+}
+
+func (s *ProcessSupervisor) Start() {
+	s.startAction <- true
+}
+
+// Tell the process to stop itself. A maximum delay is defined by the
+// StopTimeout process config.
+func (s *ProcessSupervisor) Shutdown() {
+	s.shutdownAction <- true
+}
+
+func (s *ProcessSupervisor) Signal(sig syscall.Signal) error {
+	if s.process == nil {
+		return fmt.Errorf("Process missing")
+	}
+	s.log("Sending signal: %v", sig)
+	return s.process.Signal(sig)
+}
+
+func (s *ProcessSupervisor) Kill() error {
+	return s.Signal(syscall.SIGKILL)
 }

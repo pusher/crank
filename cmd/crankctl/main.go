@@ -109,8 +109,8 @@ func processQueryFlags(query *crank.ProcessQuery, flag *flag.FlagSet) {
 	flag.IntVar(&query.Pid, "pid", 0, "filters to only include that pid")
 }
 
-func printProcess(t string, p *crank.Process) {
+func printProcess(t string, p *crank.ProcessSupervisor) {
 	if p != nil {
-		fmt.Printf("%s: %d\n", t, p.Pid)
+		fmt.Printf("%s: %d\n", t, p.Pid())
 	}
 }

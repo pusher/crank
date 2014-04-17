@@ -4,7 +4,16 @@ import (
 	"fmt"
 	"log"
 	"runtime"
+	"time"
 )
+
+// Used as an alternative to time.After() to never get a timeout on a
+// channel select.
+var neverChan <-chan time.Time
+
+func init() {
+	neverChan = make(chan time.Time)
+}
 
 // Used in dark corners of the app where behavior is undefined.
 //

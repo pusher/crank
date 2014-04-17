@@ -3,128 +3,80 @@ package crank
 import (
 	"../devnull"
 	"fmt"
-	"log"
 	"os"
-	"os/exec"
 	"syscall"
 )
 
-type Process struct {
-	*os.Process
-	config       *ProcessConfig
-	bindSocket   *os.File
-	notifySocket *os.File
-	logFile      *os.File
-	supervisor   *ProcessSupervisor
-}
+func startProcess(name string, args []string, bindSocket *os.File, ready chan<- bool, exit chan<- ExitStatus) (p *Process, err error) {
+	var (
+		stdin        *os.File
+		notifySocket *os.File
+		logFile      *os.File
+	)
 
-func newProcess(config *ProcessConfig, socket *os.File, processNotification chan<- *Process) *Process {
-	p := &Process{
-		config:     config,
-		bindSocket: socket,
-	}
-
-	p.supervisor = NewProcessSupervisor(p, PROCESS_NEW, processNotification)
-	go p.supervisor.run()
-
-	return p
-}
-
-func (p *Process) String() string {
-	if p.Process != nil {
-		return fmt.Sprintf("[%v %v] ", p.Pid, p.supervisor.stateName)
-	} else {
-		return fmt.Sprintf("[NIL %v] ", p.supervisor.stateName)
-	}
-}
-
-func (p *Process) StateName() string {
-	return p.supervisor.stateName
-}
-
-func (p *Process) Config() *ProcessConfig {
-	return p.config
-}
-
-func (p *Process) Start() {
-	p.supervisor.startAction <- true
-}
-
-// Tell the process to stop itself. A maximum delay is defined by the
-// StopTimeout process config.
-func (p *Process) Shutdown() {
-	p.supervisor.shutdownAction <- true
-}
-
-func (p *Process) Kill() error {
-	return p.Signal(syscall.SIGKILL)
-}
-
-func (p *Process) Signal(sig syscall.Signal) error {
-	p.log("Sending signal: %v", sig)
-	return p.Process.Signal(sig)
-}
-
-func (p *Process) log(format string, v ...interface{}) {
-	log.Print(p.String(), fmt.Sprintf(format, v...))
-}
-
-func (p *Process) startLogAggregator() (err error) {
-
-	return
-}
-
-func (p *Process) launch() (err error) {
-	if p.notifySocket, err = startProcessNotifier(p.supervisor.readyEvent); err != nil {
+	if stdin, err = devnull.File(); err != nil {
 		return
 	}
-	defer p.notifySocket.Close()
 
-	if p.logFile, err = startProcessLogger(os.Stdout, p.String); err != nil {
+	if notifySocket, err = startProcessNotifier(ready); err != nil {
 		return
 	}
-	defer p.logFile.Close()
+	defer notifySocket.Close()
 
-	// TODO: Allow command arguments
-	command := exec.Command(p.config.Command)
+	if logFile, err = startProcessLogger(os.Stdout, p.String); err != nil {
+		return
+	}
+	defer logFile.Close()
 
-	// Inherit the environment with which crank was run
+	p = &Process{}
+
 	// TODO: Remove environment inheriting, set sensible defaults
-	command.Env = os.Environ()
-	command.Env = append(command.Env, "LISTEN_FDS=1")
-	command.Env = append(command.Env, "NOTIFY_FD=4")
+	env := os.Environ()
+	env = append(env, "LISTEN_FDS=1")
+	env = append(env, "NOTIFY_FD=4")
 
-	// Pass file descriptors to the process
-	command.ExtraFiles = append(command.ExtraFiles, p.bindSocket)   // 3: accept socket
-	command.ExtraFiles = append(command.ExtraFiles, p.notifySocket) // 4: notify socket
-
-	command.Stdin, err = devnull.File()
-	if err != nil {
-		return err
+	procAttr := os.ProcAttr{
+		// TODO: Dir: dir,
+		Env: env,
+		Files: []*os.File{
+			stdin,
+			logFile,      // stdout
+			logFile,      // stderr
+			bindSocket,   // fd:3
+			notifySocket, // fd:4
+		},
 	}
-	command.Stdout = p.logFile
-	command.Stderr = p.logFile
 
 	// Start process
-
-	err = command.Start()
-	p.Process = command.Process
-
-	if err != nil {
-		return err
+	if p.Process, err = os.StartProcess(name, args, &procAttr); err != nil {
+		return
 	}
 
 	// Goroutine catches process exit
 	go func() {
-		err := command.Wait()
-		p.supervisor.exitEvent <- getExitStatusCode(err)
+		for {
+			ps, err := p.Wait()
+			// Make sure we don't shutdown if the process is paused
+			if ps != nil && !ps.Exited() {
+				continue
+			}
+			exit <- getExitStatusCode(ps, err)
+		}
 	}()
 
-	return
+	return p, nil
 }
 
-func (p *Process) stop() {
-	p.Signal(syscall.SIGTERM)
+type Process struct {
+	*os.Process
+}
+
+func (p *Process) String() string {
+	if p.Process != nil {
+		return fmt.Sprintf("[%d] ", p.Pid)
+	} else {
+		return fmt.Sprintf("[NIL] ")
+	}
 }
 
 type ExitStatus struct {
@@ -132,17 +84,13 @@ type ExitStatus struct {
 	err  error
 }
 
-func getExitStatusCode(err error) (s ExitStatus) {
+func getExitStatusCode(ps *os.ProcessState, err error) (s ExitStatus) {
 	s = ExitStatus{-1, err}
 	if err == nil {
 		return
 	}
 
-	exiterr, ok := err.(*exec.ExitError)
-	if !ok {
-		return
-	}
-	status, ok := exiterr.Sys().(syscall.WaitStatus)
+	status, ok := ps.Sys().(syscall.WaitStatus)
 	if !ok {
 		return
 	}

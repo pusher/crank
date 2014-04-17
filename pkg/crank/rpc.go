@@ -28,16 +28,16 @@ type ProcessQuery struct {
 	Pid      int
 }
 
-type processFilter func(*Process) *Process
+type processFilter func(*ProcessSupervisor) *ProcessSupervisor
 
 type PsQuery struct {
 	ProcessQuery
 }
 
 type PsReply struct {
-	Start    *Process
-	Current  *Process
-	Shutdown []*Process
+	Start    *ProcessSupervisor
+	Current  *ProcessSupervisor
+	Shutdown []*ProcessSupervisor
 }
 
 func (self *RPC) Ps(query *PsQuery, reply *PsReply) error {
@@ -45,26 +45,26 @@ func (self *RPC) Ps(query *PsQuery, reply *PsReply) error {
 
 	var filterPid processFilter
 	if query.Pid > 0 {
-		filterPid = func(p *Process) *Process {
-			if p == nil || p.Pid != query.Pid {
+		filterPid = func(p *ProcessSupervisor) *ProcessSupervisor {
+			if p == nil || p.Pid() != query.Pid {
 				return nil
 			}
 			return p
 		}
 	} else {
-		filterPid = func(p *Process) *Process {
+		filterPid = func(p *ProcessSupervisor) *ProcessSupervisor {
 			return p
 		}
 	}
 
 	if query.Start || all {
-		reply.Start = filterPid(self.m.newProcess)
+		reply.Start = filterPid(self.m.starting)
 	}
 	if query.Current || all {
-		reply.Current = filterPid(self.m.currentProcess)
+		reply.Current = filterPid(self.m.current)
 	}
 	if query.Shutdown || all {
-		reply.Shutdown = processSelect(self.m.oldProcesses.toArray(), filterPid)
+		reply.Shutdown = processSelect(self.m.old.toArray(), filterPid)
 	}
 
 	fmt.Println(query, reply)
@@ -87,35 +87,35 @@ func (self *RPC) Kill(query *KillQuery, reply *KillReply) (err error) {
 		query.Signal = syscall.SIGTERM
 	}
 
-	var processes []*Process
+	var processes []*ProcessSupervisor
 	var filterPid processFilter
 	if query.Pid > 0 {
-		filterPid = func(p *Process) *Process {
-			if p == nil || p.Pid != query.Pid {
+		filterPid = func(p *ProcessSupervisor) *ProcessSupervisor {
+			if p == nil || p.Pid() != query.Pid {
 				return nil
 			}
 			return p
 		}
 	} else {
-		filterPid = func(p *Process) *Process {
+		filterPid = func(p *ProcessSupervisor) *ProcessSupervisor {
 			return p
 		}
 	}
 
-	appendProcess := func(p *Process) {
+	appendProcess := func(p *ProcessSupervisor) {
 		if p != nil {
 			processes = append(processes, p)
 		}
 	}
 
 	if query.Start {
-		appendProcess(filterPid(self.m.newProcess))
+		appendProcess(filterPid(self.m.starting))
 	}
 	if query.Current {
-		appendProcess(filterPid(self.m.currentProcess))
+		appendProcess(filterPid(self.m.current))
 	}
 	if query.Shutdown {
-		processes = append(processes, processSelect(self.m.oldProcesses.toArray(), filterPid)...)
+		processes = append(processes, processSelect(self.m.old.toArray(), filterPid)...)
 	}
 
 	for _, p := range processes {
@@ -126,8 +126,8 @@ func (self *RPC) Kill(query *KillQuery, reply *KillReply) (err error) {
 	return
 }
 
-func processSelect(ps []*Process, filter processFilter) []*Process {
-	var processes []*Process
+func processSelect(ps []*ProcessSupervisor, filter processFilter) []*ProcessSupervisor {
+	var processes []*ProcessSupervisor
 	for _, p := range ps {
 		p2 := filter(p)
 		if p2 != nil {

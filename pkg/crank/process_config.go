@@ -8,6 +8,7 @@ import (
 
 type ProcessConfig struct {
 	Command      string        `json:"command"`
+	Args         []string      `json:"args"`
 	StartTimeout time.Duration `json:"start_timeout"`
 	StopTimeout  time.Duration `json:"stop_timeout"`
 }
