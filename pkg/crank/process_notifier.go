@@ -5,20 +5,32 @@ import (
 	"log"
 	"os"
 	"strings"
+	"syscall"
 )
 
-type processNotifier struct {
-	file  *os.File
-	ready chan<- bool
+// TODO: The notifier can potentially have other notifications than "ready".
+//       Eg: heartbeat
+
+// Gets a channel on which to publish events.
+//
+// Returns a file on which the process is supposed to write data, which then
+// translate into these events.
+func startProcessNotifier(ready chan<- bool) (w *os.File, err error) {
+	fds, err := syscall.Socketpair(syscall.AF_LOCAL, syscall.SOCK_STREAM, 0)
+	if err != nil {
+		return
+	}
+	r := os.NewFile(uintptr(fds[0]), "notify:r") // File name is arbitrary
+	w = os.NewFile(uintptr(fds[1]), "notify:w")
+
+	go runProcessNotifier(r, ready)
+
+	return w, nil
 }
 
-func newProcessNotifier(file *os.File, ready chan<- bool) *processNotifier {
-	return &processNotifier{file, ready}
-}
-
-func (self *processNotifier) run() {
+func runProcessNotifier(r *os.File, ready chan<- bool) {
 	// Read on pipe from child, and process commands
-	defer self.file.Close()
+	defer r.Close()
 
 	var err error
 	var command string
@@ -26,7 +38,7 @@ func (self *processNotifier) run() {
 	data := make([]byte, 4096)
 
 	for {
-		n, err = self.file.Read(data)
+		n, err = r.Read(data)
 		if err == io.EOF {
 			return
 		}
@@ -39,7 +51,7 @@ func (self *processNotifier) run() {
 
 		switch command {
 		case "READY=1":
-			self.ready <- true
+			ready <- true
 		default:
 			log.Println("Unknown command received: ", command)
 		}

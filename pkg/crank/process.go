@@ -69,20 +69,6 @@ func (p *Process) log(format string, v ...interface{}) {
 	log.Print(p.String(), fmt.Sprintf(format, v...))
 }
 
-func (p *Process) startNotifier() (err error) {
-	fds, err := syscall.Socketpair(syscall.AF_LOCAL, syscall.SOCK_STREAM, 0)
-	if err != nil {
-		return
-	}
-	rcv := os.NewFile(uintptr(fds[0]), "notify:rcv") // File name is arbitrary
-	p.notifySocket = os.NewFile(uintptr(fds[1]), "notify:snd")
-
-	pn := newProcessNotifier(rcv, p.supervisor.readyEvent)
-	go pn.run()
-
-	return
-}
-
 func (p *Process) startLogAggregator() (err error) {
 	rcv, snd, err := os.Pipe()
 	if err != nil {
@@ -97,7 +83,7 @@ func (p *Process) startLogAggregator() (err error) {
 }
 
 func (p *Process) launch() (err error) {
-	if err = p.startNotifier(); err != nil {
+	if p.notifySocket, err = startProcessNotifier(p.supervisor.readyEvent); err != nil {
 		return
 	}
 	defer p.notifySocket.Close()
