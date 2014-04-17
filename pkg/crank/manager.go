@@ -28,16 +28,16 @@ func (self processSet) toArray() []*Process {
 
 // Manager manages multiple process groups
 type Manager struct {
-	configPath     string
-	config         *ProcessConfig
-	socket         *os.File
-	processChange  chan *Process
-	restartAction  chan bool
-	newProcess     *Process
-	currentProcess *Process
-	oldProcesses   processSet
-	OnShutdown     sync.WaitGroup
-	shuttingDown   bool
+	configPath          string
+	config              *ProcessConfig
+	socket              *os.File
+	processNotification chan *Process
+	restartAction       chan bool
+	newProcess          *Process
+	currentProcess      *Process
+	oldProcesses        processSet
+	OnShutdown          sync.WaitGroup
+	shuttingDown        bool
 }
 
 func NewManager(configPath string, socket *os.File) *Manager {
@@ -48,12 +48,12 @@ func NewManager(configPath string, socket *os.File) *Manager {
 	}
 
 	manager := &Manager{
-		configPath:    configPath,
-		config:        config,
-		socket:        socket,
-		processChange: make(chan *Process),
-		restartAction: make(chan bool),
-		oldProcesses:  make(processSet),
+		configPath:          configPath,
+		config:              config,
+		socket:              socket,
+		processNotification: make(chan *Process),
+		restartAction:       make(chan bool),
+		oldProcesses:        make(processSet),
 	}
 	manager.OnShutdown.Add(1)
 	return manager
@@ -65,35 +65,39 @@ func (self *Manager) log(format string, v ...interface{}) {
 
 // Run starts the event loop for the manager process
 func (self *Manager) Run() {
+	log.Println("Running the manager")
+
+	// TODO this goroutine never terminates
+	go func() {
+		for {
+			<-self.restartAction
+			self.log("Restarting the process")
+			self.startNewProcess()
+		}
+	}()
+
 	if self.config != nil {
-		self.startNewProcess()
+		self.restartAction <- true
 	}
 
 	for {
-		select {
-		case <-self.restartAction:
-			self.log("Restarting the process")
-			self.startNewProcess()
-			// TODO what's happening? what should we do?
-		case p := <-self.processChange:
-			log.Println(p)
-			switch p.state.(type) {
-			case *ProcessStateReady:
-				if p != self.newProcess {
-					panic("[manager] BUG, some other process is ready")
-				}
-				self.log("Process %d is ready", p.Pid)
-				if self.currentProcess != nil {
-					self.log("Shutting down the current process %d", self.currentProcess.Pid)
-					self.currentProcess.Shutdown()
-					self.oldProcesses.add(self.currentProcess)
-				}
-				self.currentProcess = self.newProcess
-				self.newProcess = nil
-				self.currentProcess.config.save(self.configPath)
-			case *ProcessStateStopped:
-				self.onProcessExit(p)
+		p := <-self.processNotification
+		switch p.StateName() {
+		case "READY":
+			if p != self.newProcess {
+				panic("[manager] BUG, some other process is ready")
 			}
+			self.log("Process %d is ready", p.Pid)
+			if self.currentProcess != nil {
+				self.log("Shutting down the current process %d", self.currentProcess.Pid)
+				self.currentProcess.Shutdown()
+				self.oldProcesses.add(self.currentProcess)
+			}
+			self.currentProcess = self.newProcess
+			self.newProcess = nil
+			self.currentProcess.config.save(self.configPath)
+		case "STOPPED":
+			self.onProcessExit(p)
 		}
 	}
 }
@@ -127,8 +131,8 @@ func (self *Manager) startNewProcess() {
 		self.log("New process is already being started")
 		return // TODO what do we want to do in this case
 	}
-	self.newProcess = newProcess(self.config, self.socket, self.processChange)
-	self.newProcess.start()
+	self.newProcess = newProcess(self.config, self.socket, self.processNotification)
+	self.newProcess.Start()
 }
 
 func (self *Manager) onProcessExit(p *Process) {

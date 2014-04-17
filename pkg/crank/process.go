@@ -1,6 +1,7 @@
 package crank
 
 import (
+	"../devnull"
 	"fmt"
 	"log"
 	"os"
@@ -10,50 +11,53 @@ import (
 
 type Process struct {
 	*os.Process
-	state          ProcessState
-	config         *ProcessConfig
-	bindSocket     *os.File
-	notifySocket   *os.File
-	logFile        *os.File
-	readyEvent     chan bool
-	exitEvent      chan ExitStatus
-	shutdownAction chan bool
-	processChange  chan<- *Process
+	config       *ProcessConfig
+	bindSocket   *os.File
+	notifySocket *os.File
+	logFile      *os.File
+	supervisor   *ProcessSupervisor
 }
 
-func newProcess(config *ProcessConfig, socket *os.File, processChange chan<- *Process) *Process {
+func newProcess(config *ProcessConfig, socket *os.File, processNotification chan<- *Process) *Process {
 	p := &Process{
-		config:         config,
-		bindSocket:     socket,
-		processChange:  processChange,
-		readyEvent:     make(chan bool),
-		exitEvent:      make(chan ExitStatus), // TODO: Make use of those
-		shutdownAction: make(chan bool),
+		config:     config,
+		bindSocket: socket,
 	}
-	p.state = PROCESS_NEW(p)
+
+	p.supervisor = NewProcessSupervisor(p, PROCESS_NEW, processNotification)
+	go p.supervisor.run()
+
 	return p
 }
 
 func (p *Process) String() string {
-	return fmt.Sprintf("[%v %s] ", p.Pid, p.state)
+	if p.Process != nil {
+		return fmt.Sprintf("[%v %v] ", p.Pid, p.supervisor.stateName)
+	} else {
+		return fmt.Sprintf("[NIL %v] ", p.supervisor.stateName)
+	}
 }
 
-func (p *Process) State() ProcessState {
-	return p.state
+func (p *Process) StateName() string {
+	return p.supervisor.stateName
 }
 
 func (p *Process) Config() *ProcessConfig {
 	return p.config
 }
 
-func (p *Process) Kill() error {
-	return p.Signal(syscall.SIGKILL)
+func (p *Process) Start() {
+	p.supervisor.startAction <- true
 }
 
 // Tell the process to stop itself. A maximum delay is defined by the
 // StopTimeout process config.
 func (p *Process) Shutdown() {
-	p.shutdownAction <- true
+	p.supervisor.shutdownAction <- true
+}
+
+func (p *Process) Kill() error {
+	return p.Signal(syscall.SIGKILL)
 }
 
 func (p *Process) Signal(sig syscall.Signal) error {
@@ -73,7 +77,7 @@ func (p *Process) startNotifier() (err error) {
 	rcv := os.NewFile(uintptr(fds[0]), "notify:rcv") // File name is arbitrary
 	p.notifySocket = os.NewFile(uintptr(fds[1]), "notify:snd")
 
-	pn := newProcessNotifier(rcv, p.readyEvent)
+	pn := newProcessNotifier(rcv, p.supervisor.readyEvent)
 	go pn.run()
 
 	return
@@ -92,37 +96,57 @@ func (p *Process) startLogAggregator() (err error) {
 	return
 }
 
-func (p *Process) runReactorLoop() {
-	var err error
-
-	for err == nil {
-		err = p.state.run(p)
-	}
-
-	if err != REACTOR_STOP {
-		p.log("ERROR: ", err)
-		p.Kill()
-	}
-}
-
-func (p *Process) start() (err error) {
+func (p *Process) launch() (err error) {
 	if err = p.startNotifier(); err != nil {
 		return
 	}
+	defer p.notifySocket.Close()
 
 	if err = p.startLogAggregator(); err != nil {
 		return
 	}
+	defer p.logFile.Close()
 
-	go p.runReactorLoop()
+	// TODO: Allow command arguments
+	command := exec.Command(p.config.Command)
+
+	// Inherit the environment with which crank was run
+	// TODO: Remove environment inheriting, set sensible defaults
+	command.Env = os.Environ()
+	command.Env = append(command.Env, "LISTEN_FDS=1")
+	command.Env = append(command.Env, "NOTIFY_FD=4")
+
+	// Pass file descriptors to the process
+	command.ExtraFiles = append(command.ExtraFiles, p.bindSocket)   // 3: accept socket
+	command.ExtraFiles = append(command.ExtraFiles, p.notifySocket) // 4: notify socket
+
+	command.Stdin, err = devnull.File()
+	if err != nil {
+		return err
+	}
+	command.Stdout = p.logFile
+	command.Stderr = p.logFile
+
+	// Start process
+
+	err = command.Start()
+	p.Process = command.Process
+
+	if err != nil {
+		return err
+	}
+
+	// Goroutine catches process exit
+	go func() {
+		err := command.Wait()
+		p.supervisor.exitEvent <- getExitStatusCode(err)
+	}()
+
 	return
 }
 
-func (p *Process) changeState(newState NewProcessState) {
-	state := newState(p)
-	p.log("Changing state from %s to %s", p.state, state)
-	p.state = state
-	p.processChange <- p
+func (p *Process) stop() {
+	p.Signal(syscall.SIGTERM)
 }
 
 type ExitStatus struct {
