@@ -139,19 +139,20 @@ func NewSupervisor(config *ProcessConfig, socket *os.File, processNotification c
 }
 
 func (s *Supervisor) run() {
+	var oldStateName string
 	for {
+		oldStateName = s.stateName
 		s.stateName, s.stateTransition = s.state()
+
+		if oldStateName != s.stateName {
+			s.lastTransition = time.Now()
+		}
 
 		s.log("Changed state")
 		s.processNotification <- s
 
 		if s.stateTransition != nil {
-			// oldState := s.state
 			s.state = s.stateTransition(s)
-			// FIXME: Cannot compare functions
-			// if oldState != s.state {
-			// 	s.lastTransition = time.Now()
-			// }
 		} else {
 			return
 		}
