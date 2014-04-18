@@ -113,7 +113,6 @@ type Supervisor struct {
 	stateTransition ProcessStateTransition
 	lastTransition  time.Time
 	// actions
-	startAction    chan bool
 	shutdownAction chan bool
 	// process events
 	readyEvent chan bool
@@ -130,7 +129,6 @@ func NewSupervisor(config *ProcessConfig, socket *os.File, processNotification c
 		stateName:           "",
 		stateTransition:     nil,
 		lastTransition:      time.Now(),
-		startAction:         make(chan bool),
 		shutdownAction:      make(chan bool),
 		readyEvent:          make(chan bool),
 		exitEvent:           make(chan ExitStatus),
@@ -173,10 +171,6 @@ func (s *Supervisor) Pid() int {
 	} else {
 		return -1
 	}
-}
-
-func (s *Supervisor) Start() {
-	s.startAction <- true
 }
 
 // Tell the process to stop itself. A maximum delay is defined by the
