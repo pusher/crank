@@ -18,6 +18,12 @@ type ProcessStateTransition func(*Supervisor) ProcessState
 func PROCESS_NEW() (string, ProcessStateTransition) {
 	return "NEW", func(s *Supervisor) ProcessState {
 		var err error
+
+		if s.config == nil || s.config.Command == "" {
+			err = fmt.Errorf("Config missing")
+			return PROCESS_FAILED
+		}
+
 		s.process, err = startProcess(s.config.Command, s.config.Args, s.socket, s.readyEvent, s.exitEvent)
 		if err != nil {
 			return PROCESS_FAILED

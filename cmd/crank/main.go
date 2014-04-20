@@ -42,6 +42,12 @@ func main() {
 		log.Fatal("OOPS", err)
 	}
 
+	// Make sure the path is writeable
+	_, err = os.Create(conf)
+	if err != nil {
+		log.Fatal("could not open config file at %s: %s", conf, err)
+	}
+
 	rpcFile, err := netutil.BindFile(run)
 	if err != nil {
 		log.Fatal("bind run path failed: ", err)

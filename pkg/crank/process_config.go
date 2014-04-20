@@ -2,6 +2,7 @@ package crank
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"time"
 )
@@ -22,7 +23,12 @@ func loadProcessConfig(path string) (config *ProcessConfig, err error) {
 
 	config = new(ProcessConfig)
 	jsonDecoder := json.NewDecoder(reader)
-	err = jsonDecoder.Decode(config)
+	if err = jsonDecoder.Decode(config); err != nil {
+		return nil, err
+	}
+	if config.Command == "" {
+		return nil, fmt.Errorf("Missing command")
+	}
 	return
 }
 

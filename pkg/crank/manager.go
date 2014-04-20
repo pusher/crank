@@ -43,8 +43,7 @@ type Manager struct {
 func NewManager(configPath string, socket *os.File) *Manager {
 	config, err := loadProcessConfig(configPath)
 	if err != nil {
-		// TODO handle empty files as in the design
-		log.Fatal(err)
+		log.Println("Could not load config file: ", err)
 	}
 
 	manager := &Manager{
