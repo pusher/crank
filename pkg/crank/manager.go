@@ -32,7 +32,8 @@ type Manager struct {
 	config              *ProcessConfig
 	socket              *os.File
 	processNotification chan *Supervisor
-	restartAction       chan bool
+	restartAction       chan *ProcessConfig
+	shutdownAction      chan bool
 	starting            *Supervisor
 	current             *Supervisor
 	old                 supervisorSet
@@ -51,7 +52,7 @@ func NewManager(configPath string, socket *os.File) *Manager {
 		config:              config,
 		socket:              socket,
 		processNotification: make(chan *Supervisor),
-		restartAction:       make(chan bool),
+		restartAction:       make(chan *ProcessConfig),
 		old:                 make(supervisorSet),
 	}
 	manager.OnShutdown.Add(1)
@@ -66,53 +67,59 @@ func (self *Manager) log(format string, v ...interface{}) {
 func (self *Manager) Run() {
 	log.Println("Running the manager")
 
-	// TODO this goroutine never terminates
-	go func() {
-		for {
-			<-self.restartAction
-			self.log("Restarting the process")
-			self.startNewProcess()
-		}
-	}()
-
-	if self.config != nil {
-		self.restartAction <- true
+	if self.config != nil && self.config.Command != "" {
+		self.startNewProcess(self.config)
 	}
 
 	for {
-		p := <-self.processNotification
-		switch p.stateName {
-		case "READY":
-			if p != self.starting {
-				fail("some other process is ready")
+		select {
+		case c := <-self.restartAction:
+			self.log("Restarting the process")
+			self.startNewProcess(c)
+		case <-self.shutdownAction:
+			if self.shuttingDown {
+				self.log("Already shutting down")
 				continue
 			}
-			self.log("Process %d is ready", p.Pid)
-			if self.current != nil {
-				self.log("Shutting down the current process %d", self.current.Pid)
-				self.current.Shutdown()
-				self.old.add(self.current)
+			self.shuttingDown = true
+			if self.starting != nil {
+				self.starting.Shutdown()
 			}
-			self.current = self.starting
-			self.starting = nil
-			self.current.config.save(self.configPath)
-		case "STOPPED", "FAILED":
-			self.onProcessExit(p)
+			if self.current != nil {
+				self.current.Shutdown()
+			}
+			for process, _ := range self.old {
+				process.Shutdown()
+			}
+		case p := <-self.processNotification:
+			switch p.stateName {
+			case "READY":
+				if p != self.starting {
+					fail("some other process is ready")
+					continue
+				}
+				self.log("Process %d is ready", p.Pid)
+				if self.current != nil {
+					self.log("Shutting down the current process %d", self.current.Pid)
+					self.current.Shutdown()
+					self.old.add(self.current)
+				}
+				self.current = self.starting
+				self.starting = nil
+				err := self.current.config.save(self.configPath)
+				if err != nil {
+					self.log("Failed saving the config: %s", err)
+				}
+			case "STOPPED", "FAILED":
+				exit := self.onProcessExit(p)
+				if exit {
+					break
+				}
+			}
 		}
 	}
-}
 
-// Restart queues and starts excecuting a restart job to replace the old process group with a new one.
-func (self *Manager) Restart() {
-	self.restartAction <- true
-}
-
-func (self *Manager) Shutdown() {
-	if self.shuttingDown {
-		self.log("Trying to shutdown twice !")
-		return
-	}
-	self.shuttingDown = true
+	// Cleanup
 	if self.starting != nil {
 		self.starting.Kill()
 	}
@@ -122,20 +129,34 @@ func (self *Manager) Shutdown() {
 	for process, _ := range self.old {
 		process.Kill()
 	}
+
 	self.OnShutdown.Done()
 }
 
-func (self *Manager) startNewProcess() {
-	self.log("Starting a new process")
-	if self.starting != nil {
-		self.log("New process is already being started")
-		return // TODO what do we want to do in this case
-	}
-	self.starting = NewSupervisor(self.config, self.socket, self.processNotification)
-	self.starting.run()
+// Restart queues and starts excecuting a restart job to replace the old process group with a new one.
+func (self *Manager) Reload() {
+	self.restartAction <- self.config
 }
 
-func (self *Manager) onProcessExit(s *Supervisor) {
+func (self *Manager) Restart(c *ProcessConfig) {
+	self.restartAction <- c
+}
+
+func (self *Manager) Shutdown() {
+	self.shutdownAction <- true
+}
+
+func (self *Manager) startNewProcess(c *ProcessConfig) {
+	self.log("Starting a new process")
+	if self.starting != nil {
+		self.log("Ignore, new process is already being started")
+		return
+	}
+	self.starting = NewSupervisor(c, self.socket, self.processNotification)
+	go self.starting.run()
+}
+
+func (self *Manager) onProcessExit(s *Supervisor) bool {
 	self.log("Process %d exited", s.Pid())
 	// TODO process exit status?
 	if s == self.starting {
@@ -145,9 +166,10 @@ func (self *Manager) onProcessExit(s *Supervisor) {
 		self.log("Process exited in the current status")
 		self.current = nil
 		self.Shutdown()
-		// TODO: shutdown
+		return true
 	} else {
 		self.log("Process exited in the old status")
 		self.old.rem(s)
 	}
+	return false
 }

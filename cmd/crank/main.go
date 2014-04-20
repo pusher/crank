@@ -64,7 +64,7 @@ func main() {
 
 	go manager.Run()
 
-	go onSignal(manager.Restart, syscall.SIGHUP)
+	go onSignal(manager.Reload, syscall.SIGHUP)
 	go onSignal(manager.Shutdown, syscall.SIGTERM, syscall.SIGINT)
 
 	go func() {
