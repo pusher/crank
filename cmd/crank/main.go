@@ -60,7 +60,7 @@ func main() {
 
 	manager := crank.NewManager(conf, socket)
 
-	rpc := crank.NewRPC(manager)
+	rpc := crank.NewRPCServer(manager)
 
 	go manager.Run()
 

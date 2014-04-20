@@ -6,14 +6,14 @@ import (
 	"syscall"
 )
 
-type RPC struct {
-	*rpc.Server
+type API struct {
 	m *Manager
 }
 
-func NewRPC(m *Manager) *RPC {
-	server := &RPC{rpc.NewServer(), m}
-	err := server.RegisterName("crank", server)
+func NewRPCServer(m *Manager) *rpc.Server {
+	server := rpc.NewServer()
+	api := &API{m}
+	err := server.RegisterName("crank", api)
 	if err != nil {
 		panic(err) // Coding error
 	}
@@ -40,7 +40,7 @@ type PsReply struct {
 	Shutdown []*Supervisor
 }
 
-func (self *RPC) Ps(query *PsQuery, reply *PsReply) error {
+func (self *API) Ps(query *PsQuery, reply *PsReply) error {
 	all := !query.Start && !query.Current && !query.Shutdown
 
 	var filterPid processFilter
@@ -80,7 +80,7 @@ type KillQuery struct {
 type KillReply struct {
 }
 
-func (self *RPC) Kill(query *KillQuery, reply *KillReply) (err error) {
+func (self *API) Kill(query *KillQuery, reply *KillReply) (err error) {
 	// TODO: By default don't kill any ?
 
 	if query.Signal == 0 {
