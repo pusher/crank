@@ -91,8 +91,7 @@ func Ps(flag *flag.FlagSet) Command {
 func Kill(flag *flag.FlagSet) Command {
 	query := crank.KillQuery{}
 	processQueryFlags(&query.ProcessQuery, flag)
-	signalValue := SignalValue{&query.Signal}
-	flag.Var(&signalValue, "signal", "signal to send to the processes")
+	flag.StringVar(&query.Signal, "signal", "SIGTERM", "signal to send to the processes")
 	flag.BoolVar(&query.Wait, "wait", false, "wait for the target processes to exit")
 
 	return func(client *rpc.Client) (err error) {

@@ -73,7 +73,7 @@ func (self *API) Ps(query *PsQuery, reply *PsReply) error {
 
 type KillQuery struct {
 	ProcessQuery
-	Signal syscall.Signal
+	Signal string
 	Wait   bool
 }
 
@@ -83,8 +83,13 @@ type KillReply struct {
 func (self *API) Kill(query *KillQuery, reply *KillReply) (err error) {
 	// TODO: By default don't kill any ?
 
-	if query.Signal == 0 {
-		query.Signal = syscall.SIGTERM
+	var sig syscall.Signal
+	if query.Signal == "" {
+		sig = syscall.SIGTERM
+	} else {
+		if sig, err = str2signal(query.Signal); err != nil {
+			return
+		}
 	}
 
 	var processes []*Supervisor
@@ -119,7 +124,7 @@ func (self *API) Kill(query *KillQuery, reply *KillReply) (err error) {
 	}
 
 	for _, p := range processes {
-		p.Signal(query.Signal)
+		p.Signal(sig)
 	}
 
 	fmt.Println(query, reply)
