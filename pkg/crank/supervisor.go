@@ -17,15 +17,13 @@ type ProcessStateTransition func(*Supervisor) ProcessState
 
 func PROCESS_NEW() (string, ProcessStateTransition) {
 	return "NEW", func(s *Supervisor) ProcessState {
-		var err error
-
 		if s.config == nil || s.config.Command == "" {
-			err = fmt.Errorf("Config missing")
+			s.err = fmt.Errorf("Config missing")
 			return PROCESS_FAILED
 		}
 
-		s.process, err = startProcess(s.config.Command, s.config.Args, s.socket, s.readyEvent, s.exitEvent)
-		if err != nil {
+		s.process, s.err = startProcess(s.config.Command, s.config.Args, s.socket, s.readyEvent, s.exitEvent)
+		if s.err != nil {
 			return PROCESS_FAILED
 		}
 		return PROCESS_STARTING
@@ -45,12 +43,12 @@ func PROCESS_STARTING() (string, ProcessStateTransition) {
 
 		select {
 		case <-timeout:
-			fmt.Errorf("Process did not start in time")
+			s.err = fmt.Errorf("Process did not start in time")
 			s.Kill()
 			return PROCESS_FAILED
 		case <-s.readyEvent:
 			return PROCESS_READY
-		case <-s.exitEvent:
+		case s.exitStatus = <-s.exitEvent:
 			return PROCESS_STOPPED
 		case <-s.shutdownAction:
 			s.Signal(syscall.SIGTERM)
@@ -65,7 +63,7 @@ func PROCESS_READY() (string, ProcessStateTransition) {
 		case <-s.readyEvent:
 			s.log("Process started twice, ignoring")
 			return PROCESS_READY // TODO ok or kill?
-		case <-s.exitEvent:
+		case s.exitStatus = <-s.exitEvent:
 			return PROCESS_FAILED
 		case <-s.shutdownAction:
 			s.Signal(syscall.SIGTERM)
@@ -87,10 +85,10 @@ func PROCESS_STOPPING() (string, ProcessStateTransition) {
 
 		select {
 		case <-timeout:
-			fmt.Errorf("Process did not stop in time")
+			s.err = fmt.Errorf("Process did not stop in time")
 			s.Kill()
 			return PROCESS_FAILED
-		case <-s.exitEvent: // TODO: Record exit status
+		case s.exitStatus = <-s.exitEvent:
 			return PROCESS_STOPPED
 		case <-s.shutdownAction:
 			s.log("Stopping in the stopping state, ignoring")
@@ -118,6 +116,8 @@ type Supervisor struct {
 	stateName       string
 	stateTransition ProcessStateTransition
 	lastTransition  time.Time
+	err             error
+	exitStatus      ExitStatus
 	// actions
 	shutdownAction chan bool
 	// process events
