@@ -43,10 +43,11 @@ func main() {
 	}
 
 	// Make sure the path is writeable
-	_, err = os.Create(conf)
+	f, err := os.OpenFile(conf, os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
 		log.Fatal("could not open config file at %s: %s", conf, err)
 	}
+	f.Close()
 
 	rpcFile, err := netutil.BindFile(run)
 	if err != nil {
