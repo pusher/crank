@@ -10,13 +10,25 @@ import (
 
 // Base interface
 
-type ProcessState func() (string, ProcessStateTransition)
-type ProcessStateTransition func(*Supervisor) ProcessState
+type ProcessStateTransition func(*ProcessState, *Supervisor) *ProcessState
+type ProcessState struct {
+	name string
+	run  ProcessStateTransition
+}
+
+func (ps *ProcessState) String() string {
+	return ps.name
+}
+
+func (ps *ProcessState) next(s *Supervisor) *ProcessState {
+	return ps.run(ps, s)
+}
 
 // States
 
-func PROCESS_NEW() (string, ProcessStateTransition) {
-	return "NEW", func(s *Supervisor) ProcessState {
+var PROCESS_NEW = &ProcessState{
+	"NEW",
+	func(current *ProcessState, s *Supervisor) *ProcessState {
 		if s.config == nil || s.config.Command == "" {
 			s.err = fmt.Errorf("Config missing")
 			return PROCESS_FAILED
@@ -27,11 +39,12 @@ func PROCESS_NEW() (string, ProcessStateTransition) {
 			return PROCESS_FAILED
 		}
 		return PROCESS_STARTING
-	}
+	},
 }
 
-func PROCESS_STARTING() (string, ProcessStateTransition) {
-	return "STARTING", func(s *Supervisor) ProcessState {
+var PROCESS_STARTING = &ProcessState{
+	"STARTING",
+	func(current *ProcessState, s *Supervisor) *ProcessState {
 		var timeout <-chan time.Time
 
 		if s.config.StartTimeout > 0 {
@@ -54,26 +67,28 @@ func PROCESS_STARTING() (string, ProcessStateTransition) {
 			s.Signal(syscall.SIGTERM)
 			return PROCESS_STOPPING
 		}
-	}
+	},
 }
 
-func PROCESS_READY() (string, ProcessStateTransition) {
-	return "READY", func(s *Supervisor) ProcessState {
+var PROCESS_READY = &ProcessState{
+	"READY",
+	func(current *ProcessState, s *Supervisor) *ProcessState {
 		select {
 		case <-s.readyEvent:
 			s.log("Process started twice, ignoring")
-			return PROCESS_READY // TODO ok or kill?
+			return current
 		case s.exitStatus = <-s.exitEvent:
 			return PROCESS_FAILED
 		case <-s.shutdownAction:
 			s.Signal(syscall.SIGTERM)
 			return PROCESS_STOPPING
 		}
-	}
+	},
 }
 
-func PROCESS_STOPPING() (string, ProcessStateTransition) {
-	return "STOPPING", func(s *Supervisor) ProcessState {
+var PROCESS_STOPPING = &ProcessState{
+	"STOPPING",
+	func(current *ProcessState, s *Supervisor) *ProcessState {
 		var timeout <-chan time.Time
 
 		if s.config.StopTimeout > 0 {
@@ -92,18 +107,13 @@ func PROCESS_STOPPING() (string, ProcessStateTransition) {
 			return PROCESS_STOPPED
 		case <-s.shutdownAction:
 			s.log("Stopping in the stopping state, ignoring")
-			return PROCESS_STOPPING
+			return current
 		}
-	}
+	},
 }
 
-func PROCESS_STOPPED() (string, ProcessStateTransition) {
-	return "STOPPED", nil
-}
-
-func PROCESS_FAILED() (string, ProcessStateTransition) {
-	return "FAILED", nil
-}
+var PROCESS_STOPPED = &ProcessState{name: "STOPPED"}
+var PROCESS_FAILED = &ProcessState{name: "FAILED"}
 
 // Reactor
 
@@ -112,12 +122,10 @@ type Supervisor struct {
 	config  *ProcessConfig
 	socket  *os.File
 	// state
-	state           ProcessState
-	stateName       string
-	stateTransition ProcessStateTransition
-	lastTransition  time.Time
-	err             error
-	exitStatus      ExitStatus
+	state          *ProcessState
+	lastTransition time.Time
+	err            error
+	exitStatus     ExitStatus
 	// actions
 	shutdownAction chan bool
 	// process events
@@ -132,8 +140,6 @@ func NewSupervisor(config *ProcessConfig, socket *os.File, processNotification c
 		config:              config,
 		socket:              socket,
 		state:               PROCESS_NEW,
-		stateName:           "",
-		stateTransition:     nil,
 		lastTransition:      time.Now(),
 		shutdownAction:      make(chan bool),
 		readyEvent:          make(chan bool),
@@ -143,23 +149,21 @@ func NewSupervisor(config *ProcessConfig, socket *os.File, processNotification c
 }
 
 func (s *Supervisor) run() {
-	var oldStateName string
+	var oldState *ProcessState
 	for {
-		oldStateName = s.stateName
-		s.stateName, s.stateTransition = s.state()
+		oldState = s.state
+		if s.state.run == nil {
+			return
+		}
 
-		if oldStateName != s.stateName {
+		s.state = s.state.next(s)
+
+		if s.state != oldState {
 			s.lastTransition = time.Now()
 		}
 
-		s.log("Changed state")
+		s.log("Changed state from %s to %s", oldState, s.state)
 		s.processNotification <- s
-
-		if s.stateTransition != nil {
-			s.state = s.stateTransition(s)
-		} else {
-			return
-		}
 	}
 }
 

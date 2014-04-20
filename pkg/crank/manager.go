@@ -92,8 +92,8 @@ func (self *Manager) Run() {
 				process.Shutdown()
 			}
 		case p := <-self.processNotification:
-			switch p.stateName {
-			case "READY":
+			switch p.state {
+			case PROCESS_READY:
 				if p != self.starting {
 					fail("some other process is ready")
 					continue
@@ -110,7 +110,7 @@ func (self *Manager) Run() {
 				if err != nil {
 					self.log("Failed saving the config: %s", err)
 				}
-			case "STOPPED", "FAILED":
+			case PROCESS_STOPPED, PROCESS_FAILED:
 				exit := self.onProcessExit(p)
 				if exit {
 					break
