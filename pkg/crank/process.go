@@ -23,7 +23,7 @@ func startProcess(name string, args []string, bindSocket *os.File, ready chan<- 
 	}
 	defer notifySocket.Close()
 
-	if logFile, err = startProcessLogger(os.Stdout, p.String); err != nil {
+	if logFile, err = startProcessLogger(os.Stdout, func() string { return p.String() }); err != nil {
 		return
 	}
 	defer logFile.Close()
