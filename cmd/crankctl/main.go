@@ -78,10 +78,8 @@ func Ps(flag *flag.FlagSet) Command {
 			return
 		}
 
-		printProcess("start", reply.Start)
-		printProcess("current", reply.Current)
-		for _, v := range reply.Shutdown {
-			printProcess("shutdown", v)
+		for _, pi := range reply.PS {
+			fmt.Printf("%d %s\n", pi.Pid, pi.State)
 		}
 
 		return
@@ -106,10 +104,4 @@ func processQueryFlags(query *crank.ProcessQuery, flag *flag.FlagSet) {
 	flag.BoolVar(&query.Current, "current", false, "lists the current process")
 	flag.BoolVar(&query.Shutdown, "shutdown", false, "lists all processes shutting down")
 	flag.IntVar(&query.Pid, "pid", 0, "filters to only include that pid")
-}
-
-func printProcess(t string, p *crank.Supervisor) {
-	if p != nil {
-		fmt.Printf("%s: %d\n", t, p.Pid())
-	}
 }

@@ -35,36 +35,41 @@ type PsQuery struct {
 }
 
 type PsReply struct {
-	Start    *Supervisor
-	Current  *Supervisor
-	Shutdown []*Supervisor
+	PS []*ProcessInfo
+}
+
+type ProcessInfo struct {
+	Pid   int
+	State string
 }
 
 func (self *API) Ps(query *PsQuery, reply *PsReply) error {
-	all := !query.Start && !query.Current && !query.Shutdown
+	ss := self.m.childs
 
-	var filterPid processFilter
 	if query.Pid > 0 {
-		filterPid = func(p *Supervisor) *Supervisor {
-			if p == nil || p.Pid() != query.Pid {
-				return nil
-			}
-			return p
-		}
-	} else {
-		filterPid = func(p *Supervisor) *Supervisor {
-			return p
-		}
+		ss = ss.choose(func(p *Supervisor) bool {
+			return p.Pid() == query.Pid
+		})
 	}
 
-	if query.Start || all {
-		reply.Start = filterPid(self.m.starting)
+	if query.Start || query.Current || query.Shutdown {
+		ss = ss.choose(func(p *Supervisor) bool {
+			if query.Start && (p.state == PROCESS_NEW || p.state == PROCESS_STARTING) {
+				return true
+			}
+			if query.Current && (p.state == PROCESS_READY) {
+				return true
+			}
+			if query.Shutdown && (p.state == PROCESS_STOPPING || p.state == PROCESS_STOPPED || p.state == PROCESS_FAILED) {
+				return true
+			}
+			return false
+		})
 	}
-	if query.Current || all {
-		reply.Current = filterPid(self.m.current)
-	}
-	if query.Shutdown || all {
-		reply.Shutdown = processSelect(self.m.old.toArray(), filterPid)
+
+	reply.PS = make([]*ProcessInfo, 0, ss.len())
+	for s := range ss {
+		reply.PS = append(reply.PS, &ProcessInfo{s.Pid(), s.state.String()})
 	}
 
 	fmt.Println(query, reply)
@@ -81,8 +86,6 @@ type KillReply struct {
 }
 
 func (self *API) Kill(query *KillQuery, reply *KillReply) (err error) {
-	// TODO: By default don't kill any ?
-
 	var sig syscall.Signal
 	if query.Signal == "" {
 		sig = syscall.SIGTERM
@@ -92,40 +95,38 @@ func (self *API) Kill(query *KillQuery, reply *KillReply) (err error) {
 		}
 	}
 
-	var processes []*Supervisor
-	var filterPid processFilter
-	if query.Pid > 0 {
-		filterPid = func(p *Supervisor) *Supervisor {
-			if p == nil || p.Pid() != query.Pid {
-				return nil
-			}
-			return p
-		}
+	var ss supervisorSet
+	if query.Start || query.Current || query.Shutdown || query.Pid > 0 {
+		ss = self.m.childs
 	} else {
-		filterPid = func(p *Supervisor) *Supervisor {
-			return p
-		}
+		// Empty set
+		ss = EmptySupervisorSet
 	}
 
-	appendProcess := func(p *Supervisor) {
-		if p != nil {
-			processes = append(processes, p)
-		}
+	if query.Start || query.Current || query.Shutdown {
+		ss = ss.choose(func(p *Supervisor) bool {
+			if query.Start && (p.state == PROCESS_NEW || p.state == PROCESS_STARTING) {
+				return true
+			}
+			if query.Current && (p.state == PROCESS_READY) {
+				return true
+			}
+			if query.Shutdown && (p.state == PROCESS_STOPPING || p.state == PROCESS_STOPPED || p.state == PROCESS_FAILED) {
+				return true
+			}
+			return false
+		})
 	}
 
-	if query.Start {
-		appendProcess(filterPid(self.m.starting))
-	}
-	if query.Current {
-		appendProcess(filterPid(self.m.current))
-	}
-	if query.Shutdown {
-		processes = append(processes, processSelect(self.m.old.toArray(), filterPid)...)
+	if query.Pid > 0 {
+		ss = ss.choose(func(p *Supervisor) bool {
+			return p.Pid() == query.Pid
+		})
 	}
 
-	for _, p := range processes {
-		p.Signal(sig)
-	}
+	ss.each(func(s *Supervisor) {
+		s.Signal(sig)
+	})
 
 	fmt.Println(query, reply)
 	return

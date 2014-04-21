@@ -149,21 +149,26 @@ func NewSupervisor(config *ProcessConfig, socket *os.File, processNotification c
 }
 
 func (s *Supervisor) run() {
-	var oldState *ProcessState
+	var newState *ProcessState
 	for {
-		oldState = s.state
 		if s.state.run == nil {
 			return
 		}
 
-		s.state = s.state.next(s)
+		newState = s.state.next(s)
 
-		if s.state != oldState {
-			s.lastTransition = time.Now()
+		if newState == s.state {
+			continue
 		}
 
-		s.log("Changed state from %s to %s", oldState, s.state)
+		s.log("Changing state from %s to %s", s.state, newState)
+
+		// Send channel event before changing the state to let the manager catch
+		// up to speed.
 		s.processNotification <- s
+
+		s.lastTransition = time.Now()
+		s.state = newState
 	}
 }
 
