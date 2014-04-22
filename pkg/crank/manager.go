@@ -110,7 +110,7 @@ func (self *Manager) Shutdown() {
 
 func (self *Manager) startNewProcess(c *ProcessConfig) {
 	self.log("Starting a new process")
-	if self.childs.current() != nil {
+	if self.childs.starting() != nil {
 		self.log("Ignore, new process is already being started")
 		return
 	}
