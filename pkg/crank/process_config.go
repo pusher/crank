@@ -42,3 +42,7 @@ func (self *ProcessConfig) save(path string) (err error) {
 	jsonEncoder := json.NewEncoder(writer)
 	return jsonEncoder.Encode(self)
 }
+
+func (self *ProcessConfig) String() string {
+	return fmt.Sprintf("command=%v args=%v start_timeout=%v stop_timeout=%v", self.Command, self.Args, self.StartTimeout, self.StopTimeout)
+}

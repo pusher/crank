@@ -138,7 +138,7 @@ func (self *Manager) Shutdown() {
 }
 
 func (self *Manager) startNewProcess(config *ProcessConfig) {
-	self.log("Starting a new process")
+	self.log("Starting a new process: %s", config)
 	self.processCount += 1
 	process, err := startProcess(self.processCount, config, self.socket, self.processEvent)
 	if err != nil {

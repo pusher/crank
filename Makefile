@@ -1,4 +1,4 @@
-GOFLAGS=-race
+GOFLAGS=
 
 all: fmt crank crankctl
 
