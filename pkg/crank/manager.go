@@ -12,7 +12,7 @@ type Manager struct {
 	socket          *os.File
 	processCount    int
 	processEvent    chan ProcessEvent
-	restartAction   chan *ProcessConfig
+	startAction     chan *ProcessConfig
 	shutdownAction  chan bool
 	childs          processSet
 	shuttingDown    bool
@@ -31,7 +31,7 @@ func NewManager(configPath string, socket *os.File) *Manager {
 		config:          config,
 		socket:          socket,
 		processEvent:    make(chan ProcessEvent),
-		restartAction:   make(chan *ProcessConfig),
+		startAction:     make(chan *ProcessConfig),
 		childs:          make(processSet),
 		startingTracker: NewTimeoutTracker(),
 		stoppingTracker: NewTimeoutTracker(),
@@ -55,7 +55,7 @@ func (self *Manager) Run() {
 	for {
 		select {
 		// actions
-		case config := <-self.restartAction:
+		case config := <-self.startAction:
 			if self.childs.starting() != nil {
 				self.log("Ignore, new process is already being started")
 				continue
@@ -126,11 +126,11 @@ exit:
 
 // Restart queues and starts excecuting a restart job to replace the old process group with a new one.
 func (self *Manager) Reload() {
-	self.restartAction <- self.config
+	self.Start(self.config)
 }
 
-func (self *Manager) Restart(c *ProcessConfig) {
-	self.restartAction <- c
+func (self *Manager) Start(c *ProcessConfig) {
+	self.startAction <- c
 }
 
 func (self *Manager) Shutdown() {
