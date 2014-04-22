@@ -24,6 +24,9 @@ func NewTimeoutTracker() *TimeoutTracker {
 }
 
 func (self *TimeoutTracker) Add(p *Supervisor, timeout time.Duration) {
+	if timeout <= 0 {
+		return
+	}
 	self.mutex.Lock()
 	self.timeouts[p] = time.Now().Add(time.Millisecond * timeout)
 	self.mutex.Unlock()
