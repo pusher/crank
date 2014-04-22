@@ -7,12 +7,15 @@ import (
 	"syscall"
 )
 
-func startProcess(name string, args []string, bindSocket *os.File, ready chan<- bool, exit chan<- ExitStatus) (p *Process, err error) {
+func startProcess(count int, config *ProcessConfig, bindSocket *os.File, events chan<- ProcessEvent) (p *Process, err error) {
 	var (
 		stdin        *os.File
 		notifySocket *os.File
 		logFile      *os.File
+		ready        chan bool
 	)
+
+	ready = make(chan bool)
 
 	if stdin, err = devnull.File(); err != nil {
 		return
@@ -31,7 +34,10 @@ func startProcess(name string, args []string, bindSocket *os.File, ready chan<- 
 	}
 	defer logFile.Close()
 
-	p = &Process{}
+	p = &Process{
+		count:  count,
+		config: config,
+	}
 
 	// TODO: Remove environment inheriting, set sensible defaults
 	env := os.Environ()
@@ -51,8 +57,8 @@ func startProcess(name string, args []string, bindSocket *os.File, ready chan<- 
 	}
 
 	// Start process
-	if p.Process, err = os.StartProcess(name, args, &procAttr); err != nil {
-		return
+	if p.Process, err = os.StartProcess(config.Command, config.Args, &procAttr); err != nil {
+		return nil, err
 	}
 
 	// Goroutine catches process exit
@@ -63,7 +69,22 @@ func startProcess(name string, args []string, bindSocket *os.File, ready chan<- 
 			if ps != nil && !ps.Exited() {
 				continue
 			}
-			exit <- getExitStatusCode(ps, err)
+			code, err2 := getExitStatusCode(ps, err)
+			events <- &ProcessExitEvent{p, code, err2}
+			return
+		}
+	}()
+
+	// Goroutine that transforms ready events
+	go func() {
+		for {
+			select {
+			case v := <-ready:
+				if !v { // Channel closed
+					return
+				}
+				events <- &ProcessReadyEvent{p}
+			}
 		}
 	}()
 
@@ -72,34 +93,35 @@ func startProcess(name string, args []string, bindSocket *os.File, ready chan<- 
 
 type Process struct {
 	*os.Process
+	count  int
+	config *ProcessConfig
 }
 
-func (p *Process) String() string {
+func (p *Process) Pid() int {
 	if p.Process != nil {
-		return fmt.Sprintf("pid=%d", p.Pid)
+		return p.Process.Pid
 	} else {
-		return fmt.Sprintf("pid=nil")
+		return -1
 	}
 }
 
-type ExitStatus struct {
-	code int
-	err  error
+func (p *Process) String() string {
+	return fmt.Sprintf("pid=%d", p.Pid())
 }
 
-func getExitStatusCode(ps *os.ProcessState, err error) (s ExitStatus) {
-	s = ExitStatus{-1, err}
-	if ps == nil {
-		return
+func (p *Process) Shutdown() error {
+	return p.Signal(syscall.SIGTERM)
+}
+
+func getExitStatusCode(ps *os.ProcessState, err error) (int, error) {
+	if ps == nil || err != nil {
+		return 0, err
 	}
 
 	status, ok := ps.Sys().(syscall.WaitStatus)
 	if !ok {
-		return
+		return 0, fmt.Errorf("BUG, not a syscall.WaitStatus")
 	}
 
-	s.code = status.ExitStatus()
-	s.err = nil
-
-	return
+	return status.ExitStatus(), nil
 }

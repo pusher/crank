@@ -6,24 +6,24 @@ import (
 )
 
 type TimeoutTracker struct {
-	timeouts            map[*Supervisor]time.Time
+	timeouts            map[*Process]time.Time
 	ticker              *time.Ticker
-	timeoutNotification chan (*Supervisor)
+	timeoutNotification chan *Process
 	stopAction          chan bool
 	mutex               *sync.Mutex
 }
 
 func NewTimeoutTracker() *TimeoutTracker {
 	return &TimeoutTracker{
-		timeouts:            make(map[*Supervisor]time.Time),
+		timeouts:            make(map[*Process]time.Time),
 		ticker:              time.NewTicker(100 * time.Millisecond),
-		timeoutNotification: make(chan *Supervisor),
+		timeoutNotification: make(chan *Process),
 		stopAction:          make(chan bool),
 		mutex:               &sync.Mutex{},
 	}
 }
 
-func (self *TimeoutTracker) Add(p *Supervisor, timeout time.Duration) {
+func (self *TimeoutTracker) Add(p *Process, timeout time.Duration) {
 	if timeout <= 0 {
 		return
 	}
@@ -32,7 +32,7 @@ func (self *TimeoutTracker) Add(p *Supervisor, timeout time.Duration) {
 	self.mutex.Unlock()
 }
 
-func (self *TimeoutTracker) Remove(p *Supervisor) {
+func (self *TimeoutTracker) Remove(p *Process) {
 	self.mutex.Lock()
 	delete(self.timeouts, p)
 	self.mutex.Unlock()

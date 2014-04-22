@@ -1,7 +1,6 @@
 package crank
 
 import (
-	"fmt"
 	"log"
 	"os"
 )
@@ -11,11 +10,11 @@ type Manager struct {
 	configPath      string
 	config          *ProcessConfig
 	socket          *os.File
-	supervisorEvent chan *StateChangeEvent
-	supervisorCount int
+	processCount    int
+	processEvent    chan ProcessEvent
 	restartAction   chan *ProcessConfig
 	shutdownAction  chan bool
-	childs          supervisorSet
+	childs          processSet
 	shuttingDown    bool
 	startingTracker *TimeoutTracker
 	stoppingTracker *TimeoutTracker
@@ -31,16 +30,16 @@ func NewManager(configPath string, socket *os.File) *Manager {
 		configPath:      configPath,
 		config:          config,
 		socket:          socket,
-		supervisorEvent: make(chan *StateChangeEvent),
+		processEvent:    make(chan ProcessEvent),
 		restartAction:   make(chan *ProcessConfig),
-		childs:          make(supervisorSet),
+		childs:          make(processSet),
 		startingTracker: NewTimeoutTracker(),
 		stoppingTracker: NewTimeoutTracker(),
 	}
 	return manager
 }
 
-func (self *Manager) log(format string, v ...interface{}) {
+func (_ *Manager) log(format string, v ...interface{}) {
 	log.Printf("[manager] "+format, v...)
 }
 
@@ -56,68 +55,72 @@ func (self *Manager) Run() {
 	for {
 		select {
 		// actions
-		case c := <-self.restartAction:
-			self.log("Restarting the process")
-			self.startNewProcess(c)
+		case config := <-self.restartAction:
+			if self.childs.starting() != nil {
+				self.log("Ignore, new process is already being started")
+				continue
+			}
+			self.startNewProcess(config)
 		case <-self.shutdownAction:
 			if self.shuttingDown {
 				self.log("Already shutting down")
 				continue
 			}
 			self.shuttingDown = true
-			self.childs.each(func(s *Supervisor) {
-				s.Shutdown()
+			self.childs.each(func(p *Process) {
+				self.stopProcess(p)
 			})
 		// timeouts
-		case s := <-self.startingTracker.timeoutNotification:
-			s.err = fmt.Errorf("Process did not start in time")
-			s.Kill()
-		case s := <-self.stoppingTracker.timeoutNotification:
-			s.err = fmt.Errorf("Process did not stop in time")
-			s.Kill()
+		case process := <-self.startingTracker.timeoutNotification:
+			self.log("Process did not start in time. pid=%s", process.Pid())
+			process.Kill()
+		case process := <-self.stoppingTracker.timeoutNotification:
+			self.log("Process did not stop in time. pid=%s", process.Pid())
+			process.Kill()
 		// process state transitions
-		case e := <-self.supervisorEvent:
-			supervisor := e.supervisor
-			switch e.state {
-			case PROCESS_STARTING:
-				self.startingTracker.Add(supervisor, supervisor.config.StartTimeout)
-			case PROCESS_READY:
-				self.startingTracker.Remove(supervisor)
-
-				if supervisor != self.childs.starting() {
+		case e := <-self.processEvent:
+			switch event := e.(type) {
+			case *ProcessReadyEvent:
+				process := event.process
+				self.startingTracker.Remove(process)
+				if process != self.childs.starting() {
 					fail("Some other process is ready")
 					continue
 				}
-				self.log("Process %d is ready", supervisor.Pid())
-				current := self.childs.current()
+				self.log("Process %d is ready", process.Pid())
+				current := self.childs.ready()
 				if current != nil {
 					self.log("Shutting down the current process %d", current.Pid())
-					current.Shutdown()
+					self.stopProcess(current)
 				}
-				err := supervisor.config.save(self.configPath)
+				err := process.config.save(self.configPath)
 				if err != nil {
 					self.log("Failed saving the config: %s", err)
 				}
-			case PROCESS_STOPPING:
-				self.stoppingTracker.Add(supervisor, supervisor.config.StopTimeout)
-			case PROCESS_STOPPED, PROCESS_FAILED:
-				self.startingTracker.Remove(supervisor)
-				self.stoppingTracker.Remove(supervisor)
+				self.childs.updateState(process, PROCESS_READY)
+			case *ProcessExitEvent:
+				process := event.process
 
-				allGone := self.onProcessExit(supervisor)
-				if allGone {
+				self.startingTracker.Remove(process)
+				self.stoppingTracker.Remove(process)
+				self.childs.rem(process)
+
+				self.log("Process exited. pid=%d code=%d err=%s", process.Pid(), event.code, event.err)
+
+				if self.childs.len() == 0 {
 					goto exit
 				}
+			default:
+				fail("Unknown event: ", e)
 			}
-			self.childs.updateState(supervisor, e.state)
 		}
 	}
 
 exit:
 
 	// Cleanup
-	self.childs.each(func(s *Supervisor) {
-		s.Kill()
+	self.childs.each(func(p *Process) {
+		p.Kill()
 	})
 }
 
@@ -134,21 +137,23 @@ func (self *Manager) Shutdown() {
 	self.shutdownAction <- true
 }
 
-func (self *Manager) startNewProcess(c *ProcessConfig) {
+func (self *Manager) startNewProcess(config *ProcessConfig) {
 	self.log("Starting a new process")
-	if self.childs.starting() != nil {
-		self.log("Ignore, new process is already being started")
+	self.processCount += 1
+	process, err := startProcess(self.processCount, config, self.socket, self.processEvent)
+	if err != nil {
+		self.log("Failed to start the process", err)
 		return
 	}
-	self.supervisorCount += 1
-	s := NewSupervisor(self.supervisorCount, c, self.socket, self.supervisorEvent)
-	go s.run()
-	self.childs.add(s)
+	self.childs.add(process)
+	self.startingTracker.Add(process, process.config.StartTimeout)
 }
 
-func (self *Manager) onProcessExit(s *Supervisor) bool {
-	self.log("Process %d exited", s.Pid())
-
-	self.childs.rem(s)
-	return self.childs.len() == 0
+func (self *Manager) stopProcess(process *Process) {
+	if self.childs[process] == PROCESS_STOPPING {
+		return
+	}
+	process.Shutdown()
+	self.stoppingTracker.Add(process, process.config.StopTimeout)
+	self.childs.updateState(process, PROCESS_STOPPING)
 }
