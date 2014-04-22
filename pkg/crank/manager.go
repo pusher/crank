@@ -67,7 +67,7 @@ func (self *Manager) Run() {
 			switch p.state {
 			case PROCESS_READY:
 				if p != self.childs.starting() {
-					fail("some other process is ready")
+					fail("Some other process is ready")
 					continue
 				}
 				self.log("Process %d is ready", p.Pid)

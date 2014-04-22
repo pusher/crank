@@ -26,7 +26,6 @@ func main() {
 	flag.Parse()
 
 	// TODO: If required should not be a flag?
-	// TODO: refactor this
 	if addr == "" {
 		log.Fatal("Missing required flag: addr")
 	}
@@ -39,25 +38,24 @@ func main() {
 
 	socket, err := netutil.BindFile(addr)
 	if err != nil {
-		log.Fatal("OOPS", err)
+		log.Fatal("addr socket failed: ", err)
 	}
 
 	// Make sure the path is writeable
 	f, err := os.OpenFile(conf, os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
-		log.Fatal("could not open config file at %s: %s", conf, err)
+		log.Fatal("Could not open config file at %s: %s", conf, err)
 	}
 	f.Close()
 
 	rpcFile, err := netutil.BindFile(run)
 	if err != nil {
-		log.Fatal("bind run path failed: ", err)
+		log.Fatal("run socket failed: ", err)
 	}
 	rpcListener, err := net.FileListener(rpcFile)
 	if err != nil {
-		log.Fatal("BUG: ", err)
+		log.Fatal("BUG(rpcListener) : ", err)
 	}
-	log.Println("rpcFile: ", rpcFile.Name())
 
 	manager := crank.NewManager(conf, socket)
 
