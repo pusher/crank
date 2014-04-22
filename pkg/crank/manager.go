@@ -42,7 +42,7 @@ func NewManager(configPath string, socket *os.File) *Manager {
 // Run starts the event loop for the manager process
 func (self *Manager) Run() {
 	if self.config != nil && self.config.Command != "" {
-		self.startNewProcess(self.config)
+		self.startProcess(self.config)
 	}
 
 	go self.startingTracker.Run()
@@ -60,7 +60,7 @@ func (self *Manager) Run() {
 				self.log("Ignore start, new process is already being started")
 				continue
 			}
-			self.startNewProcess(config)
+			self.startProcess(config)
 		case <-self.shutdownAction:
 			if self.shuttingDown {
 				self.log("Already shutting down")
@@ -150,7 +150,7 @@ func (m *Manager) plog(p *Process, format string, v ...interface{}) {
 	log.Printf("%s "+format, args...)
 }
 
-func (self *Manager) startNewProcess(config *ProcessConfig) {
+func (self *Manager) startProcess(config *ProcessConfig) {
 	self.log("Starting a new process: %s", config)
 	self.processCount += 1
 	process, err := startProcess(self.processCount, config, self.socket, self.events)
