@@ -73,9 +73,9 @@ type Process struct {
 
 func (p *Process) String() string {
 	if p.Process != nil {
-		return fmt.Sprintf("[%d] ", p.Pid)
+		return fmt.Sprintf("[%d]", p.Pid)
 	} else {
-		return fmt.Sprintf("[NIL] ")
+		return fmt.Sprintf("[NIL]")
 	}
 }
 

@@ -175,7 +175,7 @@ func (s *Supervisor) run() {
 
 func (s *Supervisor) log(format string, v ...interface{}) {
 	if s.process != nil {
-		log.Printf("s:"+s.process.String()+format, v...)
+		log.Printf("s:"+s.process.String()+" "+format, v...)
 	} else {
 		log.Printf("s:[NIL] "+format, v...)
 	}
