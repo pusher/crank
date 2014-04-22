@@ -7,10 +7,6 @@ type ProcessReadyEvent struct {
 	process *Process
 }
 
-type ProcessShutdownEvent struct {
-	process *Process
-}
-
 type ProcessExitEvent struct {
 	process *Process
 	code    int

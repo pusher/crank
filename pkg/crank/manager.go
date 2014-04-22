@@ -39,10 +39,6 @@ func NewManager(configPath string, socket *os.File) *Manager {
 	return manager
 }
 
-func (_ *Manager) log(format string, v ...interface{}) {
-	log.Printf("[manager] "+format, v...)
-}
-
 // Run starts the event loop for the manager process
 func (self *Manager) Run() {
 	if self.config != nil && self.config.Command != "" {
@@ -76,10 +72,10 @@ func (self *Manager) Run() {
 			})
 		// timeouts
 		case process := <-self.startingTracker.timeoutNotification:
-			self.log("Process did not start in time. pid=%s", process.Pid())
+			self.plog(process, "Killing, did not start in time.")
 			process.Kill()
 		case process := <-self.stoppingTracker.timeoutNotification:
-			self.log("Process did not stop in time. pid=%s", process.Pid())
+			self.plog(process, "Killing, did not stop in time.")
 			process.Kill()
 		// process state transitions
 		case e := <-self.processEvent:
@@ -88,13 +84,13 @@ func (self *Manager) Run() {
 				process := event.process
 				self.startingTracker.Remove(process)
 				if process != self.childs.starting() {
-					fail("Some other process is ready")
+					self.plog(process, "Oops, some other process is ready")
 					continue
 				}
-				self.log("Process is ready %s", process)
+				self.plog(process, "Process is ready")
 				current := self.childs.ready()
 				if current != nil {
-					self.log("Shutting down the current process %s", current)
+					self.plog(current, "Shutting down old current")
 					self.stopProcess(current)
 				}
 				err := process.config.save(self.configPath)
@@ -109,7 +105,7 @@ func (self *Manager) Run() {
 				self.stoppingTracker.Remove(process)
 				self.childs.rem(process)
 
-				self.log("Process exited. %s code=%d err=%s", process, event.code, event.err)
+				self.plog(process, "Process exited. code=%d err=%v", event.code, event.err)
 
 				if self.childs.len() == 0 {
 					goto exit
@@ -139,6 +135,19 @@ func (self *Manager) Start(c *ProcessConfig) {
 
 func (self *Manager) Shutdown() {
 	self.shutdownAction <- true
+}
+
+// Private methods
+
+func (_ *Manager) log(format string, v ...interface{}) {
+	log.Printf("[manager] "+format, v...)
+}
+
+func (m *Manager) plog(p *Process, format string, v ...interface{}) {
+	args := make([]interface{}, 1, 1+len(v))
+	args[0] = p
+	args = append(args, v...)
+	log.Printf("%s "+format, args...)
 }
 
 func (self *Manager) startNewProcess(config *ProcessConfig) {
