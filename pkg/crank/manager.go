@@ -158,7 +158,7 @@ func (self *Manager) startNewProcess(config *ProcessConfig) {
 		self.log("Failed to start the process", err)
 		return
 	}
-	self.childs.add(process)
+	self.childs.add(process, PROCESS_STARTING)
 	self.startingTracker.Add(process, process.config.StartTimeout)
 }
 

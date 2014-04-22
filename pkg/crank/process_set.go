@@ -2,8 +2,8 @@ package crank
 
 type processSet map[*Process]ProcessState
 
-func (set processSet) add(s *Process) {
-	set[s] = PROCESS_STARTING
+func (set processSet) add(s *Process, state ProcessState) {
+	set[s] = state
 }
 
 func (set processSet) rem(s *Process) {
