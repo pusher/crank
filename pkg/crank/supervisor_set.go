@@ -1,9 +1,9 @@
 package crank
 
-type supervisorSet map[*Supervisor]bool
+type supervisorSet map[*Supervisor]*ProcessState
 
 func (set supervisorSet) add(s *Supervisor) {
-	set[s] = true
+	set[s] = PROCESS_NEW
 }
 
 func (set supervisorSet) rem(s *Supervisor) {
@@ -14,9 +14,17 @@ func (set supervisorSet) len() int {
 	return len(set)
 }
 
+func (set supervisorSet) updateState(s *Supervisor, state *ProcessState) {
+	if _, ok := set[s]; !ok {
+		fail("Trying to update state for an inexisting supervisor", s, state)
+		return
+	}
+	set[s] = state
+}
+
 func (set supervisorSet) find(state *ProcessState) *Supervisor {
-	for v := range set {
-		if v.state == state {
+	for v, ps := range set {
+		if ps == state {
 			return v
 		}
 	}
@@ -24,17 +32,17 @@ func (set supervisorSet) find(state *ProcessState) *Supervisor {
 }
 
 func (set supervisorSet) all(state *ProcessState) supervisorSet {
-	return set.choose(func(s *Supervisor) bool {
-		return s.state == state
+	return set.choose(func(s *Supervisor, state_ *ProcessState) bool {
+		return state_ == state
 	})
 }
 
-func (set supervisorSet) choose(fn func(*Supervisor) bool) supervisorSet {
+func (set supervisorSet) choose(fn func(*Supervisor, *ProcessState) bool) supervisorSet {
 	set2 := make(supervisorSet)
 
-	for v := range set {
-		if fn(v) {
-			set2[v] = true
+	for s, ps := range set {
+		if fn(s, ps) {
+			set2[s] = ps
 		}
 	}
 
@@ -42,8 +50,8 @@ func (set supervisorSet) choose(fn func(*Supervisor) bool) supervisorSet {
 }
 
 func (set supervisorSet) each(fn func(*Supervisor)) {
-	for v := range set {
-		fn(v)
+	for s := range set {
+		fn(s)
 	}
 }
 

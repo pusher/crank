@@ -47,20 +47,20 @@ func (self *API) Ps(query *PsQuery, reply *PsReply) error {
 	ss := self.m.childs
 
 	if query.Pid > 0 {
-		ss = ss.choose(func(p *Supervisor) bool {
+		ss = ss.choose(func(p *Supervisor, _ *ProcessState) bool {
 			return p.Pid() == query.Pid
 		})
 	}
 
 	if query.Start || query.Current || query.Shutdown {
-		ss = ss.choose(func(p *Supervisor) bool {
-			if query.Start && (p.state == PROCESS_NEW || p.state == PROCESS_STARTING) {
+		ss = ss.choose(func(p *Supervisor, state *ProcessState) bool {
+			if query.Start && (state == PROCESS_NEW || state == PROCESS_STARTING) {
 				return true
 			}
-			if query.Current && (p.state == PROCESS_READY) {
+			if query.Current && (state == PROCESS_READY) {
 				return true
 			}
-			if query.Shutdown && (p.state == PROCESS_STOPPING || p.state == PROCESS_STOPPED || p.state == PROCESS_FAILED) {
+			if query.Shutdown && (state == PROCESS_STOPPING || state == PROCESS_STOPPED || state == PROCESS_FAILED) {
 				return true
 			}
 			return false
@@ -68,8 +68,8 @@ func (self *API) Ps(query *PsQuery, reply *PsReply) error {
 	}
 
 	reply.PS = make([]*ProcessInfo, 0, ss.len())
-	for s := range ss {
-		reply.PS = append(reply.PS, &ProcessInfo{s.Pid(), s.state.String()})
+	for s, state := range ss {
+		reply.PS = append(reply.PS, &ProcessInfo{s.Pid(), state.String()})
 	}
 
 	fmt.Println(query, reply)
@@ -104,14 +104,14 @@ func (self *API) Kill(query *KillQuery, reply *KillReply) (err error) {
 	}
 
 	if query.Start || query.Current || query.Shutdown {
-		ss = ss.choose(func(p *Supervisor) bool {
-			if query.Start && (p.state == PROCESS_NEW || p.state == PROCESS_STARTING) {
+		ss = ss.choose(func(p *Supervisor, state *ProcessState) bool {
+			if query.Start && (state == PROCESS_NEW || state == PROCESS_STARTING) {
 				return true
 			}
-			if query.Current && (p.state == PROCESS_READY) {
+			if query.Current && (state == PROCESS_READY) {
 				return true
 			}
-			if query.Shutdown && (p.state == PROCESS_STOPPING || p.state == PROCESS_STOPPED || p.state == PROCESS_FAILED) {
+			if query.Shutdown && (state == PROCESS_STOPPING || state == PROCESS_STOPPED || state == PROCESS_FAILED) {
 				return true
 			}
 			return false
@@ -119,7 +119,7 @@ func (self *API) Kill(query *KillQuery, reply *KillReply) (err error) {
 	}
 
 	if query.Pid > 0 {
-		ss = ss.choose(func(p *Supervisor) bool {
+		ss = ss.choose(func(p *Supervisor, _ *ProcessState) bool {
 			return p.Pid() == query.Pid
 		})
 	}

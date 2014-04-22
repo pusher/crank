@@ -117,6 +117,11 @@ var PROCESS_FAILED = &ProcessState{name: "FAILED"}
 
 // Reactor
 
+type StateChangeEvent struct {
+	supervisor *Supervisor
+	state      *ProcessState
+}
+
 type Supervisor struct {
 	process *Process
 	config  *ProcessConfig
@@ -132,19 +137,19 @@ type Supervisor struct {
 	readyEvent chan bool
 	exitEvent  chan ExitStatus
 	// process update notifications
-	processNotification chan<- *Supervisor
+	supervisorEvent chan<- *StateChangeEvent
 }
 
-func NewSupervisor(config *ProcessConfig, socket *os.File, processNotification chan<- *Supervisor) *Supervisor {
+func NewSupervisor(config *ProcessConfig, socket *os.File, supervisorEvent chan<- *StateChangeEvent) *Supervisor {
 	return &Supervisor{
-		config:              config,
-		socket:              socket,
-		state:               PROCESS_NEW,
-		lastTransition:      time.Now(),
-		shutdownAction:      make(chan bool),
-		readyEvent:          make(chan bool),
-		exitEvent:           make(chan ExitStatus),
-		processNotification: processNotification,
+		config:          config,
+		socket:          socket,
+		state:           PROCESS_NEW,
+		lastTransition:  time.Now(),
+		shutdownAction:  make(chan bool),
+		readyEvent:      make(chan bool),
+		exitEvent:       make(chan ExitStatus),
+		supervisorEvent: supervisorEvent,
 	}
 }
 
@@ -162,13 +167,9 @@ func (s *Supervisor) run() {
 		}
 
 		s.log("Changing state from %s to %s", s.state, newState)
-
-		// Send channel event before changing the state to let the manager catch
-		// up to speed.
-		s.processNotification <- s
-
 		s.lastTransition = time.Now()
 		s.state = newState
+		s.supervisorEvent <- &StateChangeEvent{s, newState}
 	}
 }
 

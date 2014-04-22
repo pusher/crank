@@ -10,7 +10,7 @@ type Manager struct {
 	configPath      string
 	config          *ProcessConfig
 	socket          *os.File
-	supervisorEvent chan *Supervisor
+	supervisorEvent chan *StateChangeEvent
 	restartAction   chan *ProcessConfig
 	shutdownAction  chan bool
 	childs          supervisorSet
@@ -27,7 +27,7 @@ func NewManager(configPath string, socket *os.File) *Manager {
 		configPath:      configPath,
 		config:          config,
 		socket:          socket,
-		supervisorEvent: make(chan *Supervisor),
+		supervisorEvent: make(chan *StateChangeEvent),
 		restartAction:   make(chan *ProcessConfig),
 		childs:          make(supervisorSet),
 	}
@@ -58,29 +58,31 @@ func (self *Manager) Run() {
 			self.childs.each(func(s *Supervisor) {
 				s.Shutdown()
 			})
-		case p := <-self.supervisorEvent:
-			switch p.state {
+		case e := <-self.supervisorEvent:
+			supervisor := e.supervisor
+			switch e.state {
 			case PROCESS_READY:
-				if p != self.childs.starting() {
+				if supervisor != self.childs.starting() {
 					fail("Some other process is ready")
 					continue
 				}
-				self.log("Process %d is ready", p.Pid)
-				s := self.childs.current()
-				if s != nil {
-					self.log("Shutting down the current process %d", s.Pid)
-					s.Shutdown()
+				self.log("Process %d is ready", supervisor.Pid())
+				current := self.childs.current()
+				if current != nil {
+					self.log("Shutting down the current process %d", current.Pid())
+					current.Shutdown()
 				}
-				err := p.config.save(self.configPath)
+				err := supervisor.config.save(self.configPath)
 				if err != nil {
 					self.log("Failed saving the config: %s", err)
 				}
 			case PROCESS_STOPPED, PROCESS_FAILED:
-				allGone := self.onProcessExit(p)
+				allGone := self.onProcessExit(supervisor)
 				if allGone {
 					break
 				}
 			}
+			self.childs.updateState(supervisor, e.state)
 		}
 	}
 
