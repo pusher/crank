@@ -1,6 +1,7 @@
 package crank
 
 import (
+	"fmt"
 	"log"
 	"os"
 )
@@ -16,6 +17,8 @@ type Manager struct {
 	shutdownAction  chan bool
 	childs          supervisorSet
 	shuttingDown    bool
+	startingTracker *TimeoutTracker
+	stoppingTracker *TimeoutTracker
 }
 
 func NewManager(configPath string, socket *os.File) *Manager {
@@ -31,6 +34,8 @@ func NewManager(configPath string, socket *os.File) *Manager {
 		supervisorEvent: make(chan *StateChangeEvent),
 		restartAction:   make(chan *ProcessConfig),
 		childs:          make(supervisorSet),
+		startingTracker: NewTimeoutTracker(),
+		stoppingTracker: NewTimeoutTracker(),
 	}
 	return manager
 }
@@ -45,8 +50,12 @@ func (self *Manager) Run() {
 		self.startNewProcess(self.config)
 	}
 
+	go self.startingTracker.Run()
+	go self.stoppingTracker.Run()
+
 	for {
 		select {
+		// actions
 		case c := <-self.restartAction:
 			self.log("Restarting the process")
 			self.startNewProcess(c)
@@ -59,10 +68,22 @@ func (self *Manager) Run() {
 			self.childs.each(func(s *Supervisor) {
 				s.Shutdown()
 			})
+		// timeouts
+		case s := <-self.startingTracker.timeoutNotification:
+			s.err = fmt.Errorf("Process did not start in time")
+			s.Kill()
+		case s := <-self.stoppingTracker.timeoutNotification:
+			s.err = fmt.Errorf("Process did not stop in time")
+			s.Kill()
+		// process state transitions
 		case e := <-self.supervisorEvent:
 			supervisor := e.supervisor
 			switch e.state {
+			case PROCESS_STARTING:
+				self.startingTracker.Add(supervisor, supervisor.config.StartTimeout)
 			case PROCESS_READY:
+				self.startingTracker.Remove(supervisor)
+
 				if supervisor != self.childs.starting() {
 					fail("Some other process is ready")
 					continue
@@ -77,7 +98,12 @@ func (self *Manager) Run() {
 				if err != nil {
 					self.log("Failed saving the config: %s", err)
 				}
+			case PROCESS_STOPPING:
+				self.stoppingTracker.Add(supervisor, supervisor.config.StopTimeout)
 			case PROCESS_STOPPED, PROCESS_FAILED:
+				self.startingTracker.Remove(supervisor)
+				self.stoppingTracker.Remove(supervisor)
+
 				allGone := self.onProcessExit(supervisor)
 				if allGone {
 					goto exit

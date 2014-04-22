@@ -45,20 +45,7 @@ var PROCESS_NEW = &ProcessState{
 var PROCESS_STARTING = &ProcessState{
 	"STARTING",
 	func(current *ProcessState, s *Supervisor) *ProcessState {
-		var timeout <-chan time.Time
-
-		if s.config.StartTimeout > 0 {
-			delay := s.config.StartTimeout - time.Now().Sub(s.lastTransition)
-			timeout = time.After(delay)
-		} else {
-			timeout = neverChan
-		}
-
 		select {
-		case <-timeout:
-			s.err = fmt.Errorf("Process did not start in time")
-			s.Kill()
-			return PROCESS_FAILED
 		case <-s.readyEvent:
 			return PROCESS_READY
 		case s.exitStatus = <-s.exitEvent:
@@ -89,20 +76,7 @@ var PROCESS_READY = &ProcessState{
 var PROCESS_STOPPING = &ProcessState{
 	"STOPPING",
 	func(current *ProcessState, s *Supervisor) *ProcessState {
-		var timeout <-chan time.Time
-
-		if s.config.StopTimeout > 0 {
-			delay := s.config.StopTimeout - time.Now().Sub(s.lastTransition)
-			timeout = time.After(delay)
-		} else {
-			timeout = neverChan
-		}
-
 		select {
-		case <-timeout:
-			s.err = fmt.Errorf("Process did not stop in time")
-			s.Kill()
-			return PROCESS_FAILED
 		case s.exitStatus = <-s.exitEvent:
 			return PROCESS_STOPPED
 		case <-s.shutdownAction:
