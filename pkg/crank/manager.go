@@ -3,7 +3,6 @@ package crank
 import (
 	"log"
 	"os"
-	"sync"
 )
 
 // Manager manages multiple process groups
@@ -15,7 +14,6 @@ type Manager struct {
 	restartAction   chan *ProcessConfig
 	shutdownAction  chan bool
 	childs          supervisorSet
-	OnShutdown      sync.WaitGroup
 	shuttingDown    bool
 }
 
@@ -33,7 +31,6 @@ func NewManager(configPath string, socket *os.File) *Manager {
 		restartAction:   make(chan *ProcessConfig),
 		childs:          make(supervisorSet),
 	}
-	manager.OnShutdown.Add(1)
 	return manager
 }
 
@@ -43,8 +40,6 @@ func (self *Manager) log(format string, v ...interface{}) {
 
 // Run starts the event loop for the manager process
 func (self *Manager) Run() {
-	log.Println("Running the manager")
-
 	if self.config != nil && self.config.Command != "" {
 		self.startNewProcess(self.config)
 	}
@@ -93,8 +88,6 @@ func (self *Manager) Run() {
 	self.childs.each(func(s *Supervisor) {
 		s.Kill()
 	})
-
-	self.OnShutdown.Done()
 }
 
 // Restart queues and starts excecuting a restart job to replace the old process group with a new one.

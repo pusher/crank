@@ -58,21 +58,17 @@ func main() {
 	}
 
 	manager := crank.NewManager(conf, socket)
-
-	rpc := crank.NewRPCServer(manager)
-
-	go manager.Run()
-
 	go onSignal(manager.Reload, syscall.SIGHUP)
 	go onSignal(manager.Shutdown, syscall.SIGTERM, syscall.SIGINT)
 
-	go func() {
-		manager.OnShutdown.Wait()
-		rpcListener.Close()
-		os.Remove(rpcFile.Name())
-	}()
+	rpc := crank.NewRPCServer(manager)
+	go rpc.Accept(rpcListener)
 
-	rpc.Accept(rpcListener)
+	manager.Run() // Blocking
+
+	// Shutdown
+	rpcListener.Close()
+	os.Remove(rpcFile.Name())
 
 	log.Println("Bye!")
 }
