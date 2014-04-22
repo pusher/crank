@@ -11,16 +11,25 @@ import (
 type Command func(*rpc.Client) error
 type CommandSetup func(*flag.FlagSet) Command
 
+var flags *flag.FlagSet
 var run string
 var commands map[string]CommandSetup
 
 func init() {
-	defaultFlags(flag.CommandLine)
-
-	// TODO: show all the available commands in usage
 	commands = make(map[string]CommandSetup)
 	commands["ps"] = Ps
 	commands["kill"] = Kill
+
+	flags = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	flags.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage: %s [opts] <command> [command opts]\n\nOptions:\n", os.Args[0])
+		flags.PrintDefaults()
+		fmt.Fprintf(os.Stderr, "\nCommands:\n")
+		for name := range commands {
+			fmt.Fprintf(os.Stderr, "  %s\n", name)
+		}
+	}
+	defaultFlags(flags)
 }
 
 func defaultFlags(flagSet *flag.FlagSet) {
@@ -29,15 +38,18 @@ func defaultFlags(flagSet *flag.FlagSet) {
 
 func fail(reason string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, reason, args...)
-	flag.Usage()
+	flags.Usage()
 	os.Exit(1)
 }
 
 func main() {
 	var err error
-	flag.Parse()
 
-	command := flag.Arg(0)
+	if err = flags.Parse(os.Args[1:]); err != nil {
+		panic(err)
+	}
+
+	command := flags.Arg(0)
 
 	if command == "" {
 		fail("command missing\n")
@@ -53,7 +65,7 @@ func main() {
 
 	cmd := cmdSetup(flagSet)
 
-	if err = flagSet.Parse(flag.Args()[1:]); err != nil {
+	if err = flagSet.Parse(flags.Args()[1:]); err != nil {
 		fail("oops: %s\n", err)
 	}
 
