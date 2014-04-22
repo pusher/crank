@@ -123,6 +123,7 @@ type StateChangeEvent struct {
 }
 
 type Supervisor struct {
+	id      int
 	process *Process
 	config  *ProcessConfig
 	socket  *os.File
@@ -140,8 +141,9 @@ type Supervisor struct {
 	supervisorEvent chan<- *StateChangeEvent
 }
 
-func NewSupervisor(config *ProcessConfig, socket *os.File, supervisorEvent chan<- *StateChangeEvent) *Supervisor {
+func NewSupervisor(id int, config *ProcessConfig, socket *os.File, supervisorEvent chan<- *StateChangeEvent) *Supervisor {
 	return &Supervisor{
+		id:              id,
 		config:          config,
 		socket:          socket,
 		state:           PROCESS_NEW,
@@ -174,11 +176,11 @@ func (s *Supervisor) run() {
 }
 
 func (s *Supervisor) log(format string, v ...interface{}) {
-	if s.process != nil {
-		log.Printf("s:"+s.process.String()+" "+format, v...)
-	} else {
-		log.Printf("s:[NIL] "+format, v...)
-	}
+	args := make([]interface{}, 2, 2+len(v))
+	args[0] = s.id
+	args[1] = s.process
+	args = append(args, v...)
+	log.Printf("[sid=%d %s state=%s]: "+format, args...)
 }
 
 func (s *Supervisor) Pid() int {

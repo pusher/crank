@@ -11,6 +11,7 @@ type Manager struct {
 	config          *ProcessConfig
 	socket          *os.File
 	supervisorEvent chan *StateChangeEvent
+	supervisorCount int
 	restartAction   chan *ProcessConfig
 	shutdownAction  chan bool
 	childs          supervisorSet
@@ -113,7 +114,8 @@ func (self *Manager) startNewProcess(c *ProcessConfig) {
 		self.log("Ignore, new process is already being started")
 		return
 	}
-	s := NewSupervisor(c, self.socket, self.supervisorEvent)
+	self.supervisorCount += 1
+	s := NewSupervisor(self.supervisorCount, c, self.socket, self.supervisorEvent)
 	go s.run()
 	self.childs.add(s)
 }

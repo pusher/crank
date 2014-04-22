@@ -22,14 +22,12 @@ func init() {
 func fail(v ...interface{}) (err error) {
 	_, file, line, _ := runtime.Caller(1)
 
-	args := make([]interface{}, len(v)+2)
+	args := make([]interface{}, 2, len(v)+2)
 	args[0] = file
 	args[1] = line
-	for i, a := range v {
-		args[i+2] = a
-	}
+	args = append(args, v...)
 
-	err = fmt.Errorf("ERROR at %s:%d.", args...)
+	err = fmt.Errorf("ERROR at %s:%d. ", args...)
 
 	log.Println(err)
 

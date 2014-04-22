@@ -23,7 +23,10 @@ func startProcess(name string, args []string, bindSocket *os.File, ready chan<- 
 	}
 	defer notifySocket.Close()
 
-	if logFile, err = startProcessLogger(os.Stdout, func() string { return p.String() }); err != nil {
+	prefix := func() string {
+		return p.String()
+	}
+	if logFile, err = startProcessLogger(os.Stdout, prefix); err != nil {
 		return
 	}
 	defer logFile.Close()
@@ -73,9 +76,9 @@ type Process struct {
 
 func (p *Process) String() string {
 	if p.Process != nil {
-		return fmt.Sprintf("[%d]", p.Pid)
+		return fmt.Sprintf("pid=%d", p.Pid)
 	} else {
-		return fmt.Sprintf("[NIL]")
+		return fmt.Sprintf("pid=nil")
 	}
 }
 
