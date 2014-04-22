@@ -86,7 +86,7 @@ type ExitStatus struct {
 
 func getExitStatusCode(ps *os.ProcessState, err error) (s ExitStatus) {
 	s = ExitStatus{-1, err}
-	if err == nil {
+	if ps == nil {
 		return
 	}
 
