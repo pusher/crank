@@ -189,8 +189,6 @@ func (s *Supervisor) Pid() int {
 	}
 }
 
-// Tell the process to stop itself. A maximum delay is defined by the
-// StopTimeout process config.
 func (s *Supervisor) Shutdown() {
 	s.shutdownAction <- true
 }

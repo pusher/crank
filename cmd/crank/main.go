@@ -25,7 +25,6 @@ func init() {
 func main() {
 	flag.Parse()
 
-	// TODO: If required should not be a flag?
 	if addr == "" {
 		log.Fatal("Missing required flag: addr")
 	}
