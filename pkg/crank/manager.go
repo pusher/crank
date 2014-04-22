@@ -79,12 +79,14 @@ func (self *Manager) Run() {
 			case PROCESS_STOPPED, PROCESS_FAILED:
 				allGone := self.onProcessExit(supervisor)
 				if allGone {
-					break
+					goto exit
 				}
 			}
 			self.childs.updateState(supervisor, e.state)
 		}
 	}
+
+exit:
 
 	// Cleanup
 	self.childs.each(func(s *Supervisor) {
