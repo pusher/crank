@@ -11,7 +11,7 @@ type Manager struct {
 	config          *ProcessConfig
 	socket          *os.File
 	processCount    int
-	processEvent    chan ProcessEvent
+	events          chan Event
 	startAction     chan *ProcessConfig
 	shutdownAction  chan bool
 	childs          processSet
@@ -30,7 +30,7 @@ func NewManager(configPath string, socket *os.File) *Manager {
 		configPath:      configPath,
 		config:          config,
 		socket:          socket,
-		processEvent:    make(chan ProcessEvent),
+		events:          make(chan Event),
 		startAction:     make(chan *ProcessConfig),
 		childs:          make(processSet),
 		startingTracker: NewTimeoutTracker(),
@@ -78,7 +78,7 @@ func (self *Manager) Run() {
 			self.plog(process, "Killing, did not stop in time.")
 			process.Kill()
 		// process state transitions
-		case e := <-self.processEvent:
+		case e := <-self.events:
 			switch event := e.(type) {
 			case *ProcessReadyEvent:
 				process := event.process
@@ -153,7 +153,7 @@ func (m *Manager) plog(p *Process, format string, v ...interface{}) {
 func (self *Manager) startNewProcess(config *ProcessConfig) {
 	self.log("Starting a new process: %s", config)
 	self.processCount += 1
-	process, err := startProcess(self.processCount, config, self.socket, self.processEvent)
+	process, err := startProcess(self.processCount, config, self.socket, self.events)
 	if err != nil {
 		self.log("Failed to start the process", err)
 		return

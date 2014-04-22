@@ -1,7 +1,6 @@
 package crank
 
-type ProcessEvent interface {
-}
+type Event interface{}
 
 type ProcessReadyEvent struct {
 	process *Process

@@ -7,7 +7,7 @@ import (
 	"syscall"
 )
 
-func startProcess(id int, config *ProcessConfig, bindSocket *os.File, events chan<- ProcessEvent) (p *Process, err error) {
+func startProcess(id int, config *ProcessConfig, bindSocket *os.File, events chan<- Event) (p *Process, err error) {
 	var (
 		stdin        *os.File
 		notifySocket *os.File
