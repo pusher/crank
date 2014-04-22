@@ -7,7 +7,7 @@ import (
 	"syscall"
 )
 
-func startProcess(count int, config *ProcessConfig, bindSocket *os.File, events chan<- ProcessEvent) (p *Process, err error) {
+func startProcess(id int, config *ProcessConfig, bindSocket *os.File, events chan<- ProcessEvent) (p *Process, err error) {
 	var (
 		stdin        *os.File
 		notifySocket *os.File
@@ -35,7 +35,7 @@ func startProcess(count int, config *ProcessConfig, bindSocket *os.File, events 
 	defer logFile.Close()
 
 	p = &Process{
-		count:  count,
+		id:     id,
 		config: config,
 	}
 
@@ -93,7 +93,7 @@ func startProcess(count int, config *ProcessConfig, bindSocket *os.File, events 
 
 type Process struct {
 	*os.Process
-	count  int
+	id     int
 	config *ProcessConfig
 }
 
@@ -106,7 +106,7 @@ func (p *Process) Pid() int {
 }
 
 func (p *Process) String() string {
-	return fmt.Sprintf("pid=%d", p.Pid())
+	return fmt.Sprintf("id=%d pid=%d", p.id, p.Pid())
 }
 
 func (p *Process) Shutdown() error {

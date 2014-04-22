@@ -91,10 +91,10 @@ func (self *Manager) Run() {
 					fail("Some other process is ready")
 					continue
 				}
-				self.log("Process %d is ready", process.Pid())
+				self.log("Process is ready %s", process)
 				current := self.childs.ready()
 				if current != nil {
-					self.log("Shutting down the current process %d", current.Pid())
+					self.log("Shutting down the current process %s", current)
 					self.stopProcess(current)
 				}
 				err := process.config.save(self.configPath)
@@ -109,7 +109,7 @@ func (self *Manager) Run() {
 				self.stoppingTracker.Remove(process)
 				self.childs.rem(process)
 
-				self.log("Process exited. pid=%d code=%d err=%s", process.Pid(), event.code, event.err)
+				self.log("Process exited. %s code=%d err=%s", process, event.code, event.err)
 
 				if self.childs.len() == 0 {
 					goto exit
