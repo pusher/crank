@@ -24,7 +24,7 @@ func (set processSet) updateState(s *Process, state ProcessState) {
 
 func (set processSet) find(state ProcessState) *Process {
 	for v, ps := range set {
-		if ps == state {
+		if ps&state > 0 {
 			return v
 		}
 	}
@@ -33,7 +33,7 @@ func (set processSet) find(state ProcessState) *Process {
 
 func (set processSet) all(state ProcessState) processSet {
 	return set.choose(func(s *Process, state_ ProcessState) bool {
-		return state_ == state
+		return (state_&state > 0)
 	})
 }
 
