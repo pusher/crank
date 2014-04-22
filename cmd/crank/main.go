@@ -66,7 +66,6 @@ func main() {
 	manager.Run() // Blocking
 
 	// Shutdown
-	rpcListener.Close()
 	os.Remove(rpcFile.Name())
 
 	log.Println("Bye!")
