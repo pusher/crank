@@ -56,8 +56,12 @@ func (self *Manager) Run() {
 		select {
 		// actions
 		case config := <-self.startAction:
+			if self.shuttingDown {
+				self.log("Ignore start, manager is shutting down")
+				continue
+			}
 			if self.childs.starting() != nil {
-				self.log("Ignore, new process is already being started")
+				self.log("Ignore start, new process is already being started")
 				continue
 			}
 			self.startNewProcess(config)
