@@ -56,7 +56,7 @@ func startProcess(id int, config *ProcessConfig, bindSocket *os.File, events cha
 	}
 
 	// Start process
-	if p.Process, err = os.StartProcess(config.Command, config.Args, &procAttr); err != nil {
+	if p.Process, err = os.StartProcess(config.Command[0], config.Command, &procAttr); err != nil {
 		return nil, err
 	}
 

@@ -34,7 +34,7 @@ type processFilter func(*Process) *Process
 // START
 
 type StartQuery struct {
-	Command      string
+	Command      []string
 	StartTimeout int
 	StopTimeout  int
 	Wait         bool
@@ -47,7 +47,7 @@ func (self *API) Start(query *StartQuery, reply *StartReply) error {
 	// FIXME: concurrency access
 	config := self.m.config.clone()
 
-	if query.Command != "" {
+	if len(query.Command) > 0 {
 		config.Command = query.Command
 	}
 

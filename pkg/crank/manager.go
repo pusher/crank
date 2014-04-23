@@ -152,7 +152,7 @@ func (m *Manager) plog(p *Process, format string, v ...interface{}) {
 }
 
 func (self *Manager) startProcess(config *ProcessConfig) {
-	if config.Command == "" {
+	if len(config.Command) == 0 {
 		self.log("Ignoring process start, command is missing")
 		return
 	}

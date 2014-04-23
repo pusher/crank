@@ -8,13 +8,13 @@ import (
 )
 
 type ProcessConfig struct {
-	Command      string        `json:"command"`
-	Args         []string      `json:"args"`
+	Command      []string      `json:"command"`
 	StartTimeout time.Duration `json:"start_timeout"`
 	StopTimeout  time.Duration `json:"stop_timeout"`
 }
 
 var DefaultConfig = &ProcessConfig{
+	Command:      []string{},
 	StartTimeout: time.Second * 30,
 	StopTimeout:  time.Second * 30,
 }
@@ -31,7 +31,7 @@ func loadProcessConfig(path string) (config *ProcessConfig, err error) {
 	if err = jsonDecoder.Decode(config); err != nil {
 		return DefaultConfig, err
 	}
-	if config.Command == "" {
+	if len(config.Command) == 0 {
 		return config, fmt.Errorf("Missing command")
 	}
 	return
@@ -55,5 +55,5 @@ func (self *ProcessConfig) clone() *ProcessConfig {
 }
 
 func (self *ProcessConfig) String() string {
-	return fmt.Sprintf("command=%v args=%v start_timeout=%v stop_timeout=%v", self.Command, self.Args, self.StartTimeout, self.StopTimeout)
+	return fmt.Sprintf("command=%v start_timeout=%v stop_timeout=%v", self.Command, self.StartTimeout, self.StopTimeout)
 }
