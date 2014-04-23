@@ -1,8 +1,11 @@
 package crank
 
 import (
+	"fmt"
 	"log"
 	"os"
+	"syscall"
+	"time"
 )
 
 // Manager manages multiple process groups
@@ -61,15 +64,123 @@ func (self *Manager) Run() {
 					self.stopProcess(p)
 				})
 			case *StartAction:
+				query := action.query
+				//reply := action.reply -- not used
+
 				if self.shuttingDown {
-					self.log("Ignore start, manager is shutting down")
+					err := fmt.Errorf("Ignore start, manager is shutting down")
+					self.log(err.Error())
+					action.done <- err
 					continue
 				}
 				if self.childs.starting() != nil {
-					self.log("Ignore start, new process is already being started")
+					err := fmt.Errorf("Ignore start, new process is already being started")
+					self.log(err.Error())
+					action.done <- err
 					continue
 				}
-				self.startProcess(action.config)
+
+				config := self.config.clone()
+
+				if len(query.Command) > 0 {
+					config.Command = query.Command
+				}
+
+				if query.StartTimeout > 0 {
+					config.StartTimeout = time.Duration(query.StartTimeout) * time.Second
+				}
+
+				if query.StopTimeout > 0 {
+					config.StopTimeout = time.Duration(query.StopTimeout) * time.Second
+				}
+
+				// TODO: support the query.Wait flag
+
+				self.startProcess(config)
+
+				action.done <- nil
+			case *PsAction:
+				query := action.query
+				reply := action.reply
+				ps := self.childs
+
+				if query.Pid > 0 {
+					ps = ps.choose(func(p *Process, _ ProcessState) bool {
+						return p.Pid() == query.Pid
+					})
+				}
+
+				if query.Starting || query.Ready || query.Stopping {
+					ps = ps.choose(func(p *Process, state ProcessState) bool {
+						if query.Starting && (state == PROCESS_STARTING) {
+							return true
+						}
+						if query.Ready && (state == PROCESS_READY) {
+							return true
+						}
+						if query.Stopping && (state == PROCESS_STOPPING) {
+							return true
+						}
+						return false
+					})
+				}
+
+				reply.PS = make([]*ProcessInfo, 0, ps.len())
+				for p, state := range ps {
+					usage, err := p.Usage()
+					reply.PS = append(reply.PS, &ProcessInfo{p.Pid(), state.String(), p.config.Command, usage, err})
+				}
+
+				action.done <- nil
+			case *KillAction:
+				query := action.query
+				//reply := action.reply -- not used
+
+				var sig syscall.Signal
+				if query.Signal == "" {
+					sig = syscall.SIGTERM
+				} else {
+					var err error
+					if sig, err = str2signal(query.Signal); err != nil {
+						action.done <- err
+						continue
+					}
+				}
+
+				var ps processSet
+				if query.Starting || query.Ready || query.Stopping || query.Pid > 0 {
+					ps = self.childs
+				} else {
+					// Empty set
+					ps = EmptyProcessSet
+				}
+
+				if query.Starting || query.Ready || query.Stopping {
+					ps = ps.choose(func(p *Process, state ProcessState) bool {
+						if query.Starting && (state == PROCESS_STARTING) {
+							return true
+						}
+						if query.Ready && (state == PROCESS_READY) {
+							return true
+						}
+						if query.Stopping && (state == PROCESS_STOPPING) {
+							return true
+						}
+						return false
+					})
+				}
+
+				if query.Pid > 0 {
+					ps = ps.choose(func(p *Process, _ ProcessState) bool {
+						return p.Pid() == query.Pid
+					})
+				}
+
+				ps.each(func(p *Process) {
+					p.Signal(sig)
+				})
+
+				action.done <- nil
 			default:
 				fail("Unknown action: ", a)
 			}
@@ -128,17 +239,19 @@ exit:
 	})
 }
 
-// Restart queues and starts excecuting a restart job to replace the old process group with a new one.
-func (self *Manager) Reload() {
-	self.Start(self.config)
+func (self *Manager) SendAction(action Action) {
+	self.actions <- action
 }
 
-func (self *Manager) Start(c *ProcessConfig) {
-	self.actions <- &StartAction{c}
+// Restart queues and starts excecuting a restart job to replace the old process group with a new one.
+func (self *Manager) Reload() {
+	done := make(chan error)
+	self.SendAction(&StartAction{&StartQuery{}, nil, done})
+	<-done
 }
 
 func (self *Manager) Shutdown() {
-	self.actions <- ShutdownAction(true)
+	self.SendAction(ShutdownAction(true))
 }
 
 // Private methods

@@ -44,26 +44,9 @@ type StartReply struct {
 }
 
 func (self *API) Start(query *StartQuery, reply *StartReply) error {
-	// FIXME: concurrency access
-	config := self.m.config.clone()
-
-	if len(query.Command) > 0 {
-		config.Command = query.Command
-	}
-
-	if query.StartTimeout > 0 {
-		config.StartTimeout = time.Duration(query.StartTimeout) * time.Second
-	}
-
-	if query.StopTimeout > 0 {
-		config.StopTimeout = time.Duration(query.StopTimeout) * time.Second
-	}
-
-	// TODO: support the query.Wait flag
-
-	self.m.Start(config)
-
-	return nil
+	done := make(chan error, 1)
+	self.m.actions <- &StartAction{query, reply, done}
+	return <-done
 }
 
 // PS
@@ -98,37 +81,9 @@ func (pi *ProcessInfo) String() string {
 }
 
 func (self *API) Ps(query *PsQuery, reply *PsReply) error {
-	ss := self.m.childs
-
-	if query.Pid > 0 {
-		ss = ss.choose(func(p *Process, _ ProcessState) bool {
-			return p.Pid() == query.Pid
-		})
-	}
-
-	if query.Starting || query.Ready || query.Stopping {
-		ss = ss.choose(func(p *Process, state ProcessState) bool {
-			if query.Starting && (state == PROCESS_STARTING) {
-				return true
-			}
-			if query.Ready && (state == PROCESS_READY) {
-				return true
-			}
-			if query.Stopping && (state == PROCESS_STOPPING) {
-				return true
-			}
-			return false
-		})
-	}
-
-	reply.PS = make([]*ProcessInfo, 0, ss.len())
-	for s, state := range ss {
-		usage, err := s.Usage()
-		reply.PS = append(reply.PS, &ProcessInfo{s.Pid(), state.String(), s.config.Command, usage, err})
-	}
-
-	fmt.Println(query, reply)
-	return nil
+	done := make(chan error, 1) // Make the reply async
+	self.m.actions <- &PsAction{query, reply, done}
+	return <-done
 }
 
 type KillQuery struct {
@@ -137,52 +92,10 @@ type KillQuery struct {
 	Wait   bool
 }
 
-type KillReply struct {
-}
+type KillReply struct{}
 
 func (self *API) Kill(query *KillQuery, reply *KillReply) (err error) {
-	var sig syscall.Signal
-	if query.Signal == "" {
-		sig = syscall.SIGTERM
-	} else {
-		if sig, err = str2signal(query.Signal); err != nil {
-			return
-		}
-	}
-
-	var ss processSet
-	if query.Starting || query.Ready || query.Stopping || query.Pid > 0 {
-		ss = self.m.childs
-	} else {
-		// Empty set
-		ss = EmptyProcessSet
-	}
-
-	if query.Starting || query.Ready || query.Stopping {
-		ss = ss.choose(func(p *Process, state ProcessState) bool {
-			if query.Starting && (state == PROCESS_STARTING) {
-				return true
-			}
-			if query.Ready && (state == PROCESS_READY) {
-				return true
-			}
-			if query.Stopping && (state == PROCESS_STOPPING) {
-				return true
-			}
-			return false
-		})
-	}
-
-	if query.Pid > 0 {
-		ss = ss.choose(func(p *Process, _ ProcessState) bool {
-			return p.Pid() == query.Pid
-		})
-	}
-
-	ss.each(func(s *Process) {
-		s.Signal(sig)
-	})
-
-	fmt.Println(query, reply)
-	return
+	done := make(chan error, 1)
+	self.m.actions <- &KillAction{query, reply, done}
+	return <-done
 }
