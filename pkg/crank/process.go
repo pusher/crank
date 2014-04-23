@@ -98,11 +98,11 @@ type Process struct {
 }
 
 func (p *Process) Pid() int {
-	if p.Process != nil {
-		return p.Process.Pid
-	} else {
+	if p.Process == nil {
 		return -1
 	}
+
+	return p.Process.Pid
 }
 
 func (p *Process) String() string {
@@ -111,6 +111,29 @@ func (p *Process) String() string {
 
 func (p *Process) Shutdown() error {
 	return p.Signal(syscall.SIGTERM)
+}
+
+func (p *Process) Usage() (*syscall.Rusage, error) {
+	if p.Process == nil {
+		return nil, fmt.Errorf("BUG, no process")
+	}
+
+	// TODO: keep usage on exit
+
+	var wstatus *syscall.WaitStatus
+
+	pid := p.Process.Pid
+	rusage := new(syscall.Rusage)
+
+	_, err := syscall.Wait4(pid, wstatus, syscall.WNOHANG, rusage)
+	if err != nil {
+		return nil, err
+	}
+	// if wpid != pid {
+	// 	return nil, fmt.Errorf("BUG, pid[%d] != wpid[%d]", pid, wpid)
+	// }
+
+	return rusage, nil
 }
 
 func getExitStatusCode(ps *os.ProcessState, err error) (int, error) {

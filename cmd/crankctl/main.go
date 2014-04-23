@@ -110,7 +110,7 @@ func Ps(flag *flag.FlagSet) Command {
 		}
 
 		for _, pi := range reply.PS {
-			fmt.Printf("%d %s\n", pi.Pid, pi.State)
+			fmt.Println(pi)
 		}
 
 		return

@@ -33,3 +33,23 @@ func fail(v ...interface{}) (err error) {
 
 	return err
 }
+
+type ByteCount int64
+
+var byteExp = map[int]string{
+	0: "bytes",
+	1: "Kb",
+	2: "Mb",
+	3: "Gb",
+}
+
+func (b ByteCount) String() string {
+	var (
+		exp int
+		num float64
+	)
+	for num = float64(b); num > 1024 && exp < 4; exp++ {
+		num /= 1024
+	}
+	return fmt.Sprintf("%0.2f %s", num, byteExp[exp])
+}

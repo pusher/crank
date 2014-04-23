@@ -79,6 +79,21 @@ type PsReply struct {
 type ProcessInfo struct {
 	Pid   int
 	State string
+	Usage *syscall.Rusage
+	Err   error
+}
+
+func (pi *ProcessInfo) String() string {
+	since := func(tv syscall.Timeval) time.Duration {
+		return time.Duration(tv.Nano())
+	}
+
+	if pi.Err != nil {
+		return fmt.Sprintf("%d %s\n", pi.Pid, pi.State, pi.Err)
+	} else {
+		usage := pi.Usage
+		return fmt.Sprintf("%d %s %v %v %v\n", pi.Pid, pi.State, since(usage.Utime), since(usage.Stime), ByteCount(usage.Maxrss))
+	}
 }
 
 func (self *API) Ps(query *PsQuery, reply *PsReply) error {
@@ -107,7 +122,8 @@ func (self *API) Ps(query *PsQuery, reply *PsReply) error {
 
 	reply.PS = make([]*ProcessInfo, 0, ss.len())
 	for s, state := range ss {
-		reply.PS = append(reply.PS, &ProcessInfo{s.Pid(), state.String()})
+		usage, err := s.Usage()
+		reply.PS = append(reply.PS, &ProcessInfo{s.Pid(), state.String(), usage, err})
 	}
 
 	fmt.Println(query, reply)
