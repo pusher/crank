@@ -1,0 +1,100 @@
+.TH CRANK 1 "APRIL 2014" Crank "User Manuals"
+.SH NAME
+.PP
+crank \- restart your processes, slowly
+.SH SYNOPSIS
+.PP
+\fB\fCcrank\fR [opts]
+.SH DESCRIPTION
+.PP
+Crank's main goal is to handle restarts for servers who handle long\-lived TCP
+socket connections. Traditional process managers tend to be rather brusque and
+kill the server. We want to be able to let the client an opportunity to
+reconnect somewhere else. We also want to load the new version and wait until
+it tells us it's ready and thus proove it's working before shutting down the
+old process.
+.PP
+Because \fB\fCcrank\fR exits when all the child processes are gone, you should run it
+under a system\-level supervisor like upstart or systemd that handles restarts.
+.PP
+Processes run under crank needs to be adapted to benefit from all the features
+than crank provides. See the "PROCESS SIDE" section for more details.
+.SH OPTIONS
+.PP
+Note that valid addr, conf and sock values are necessary for crank to run.
+.TP
+\fB\fC-addr\fR \fInet\-addr\fP
+A port or path on which to bind. This socket is not used directly by crank
+but passed onto the child process using the systemd LISTEN\fIFDS convention.
+Note that unlike systemd we don't pass the LISTEN\fPPID environment variable
+(due to a limitation in the go fork/exec model)
+.TP
+\fB\fC-conf\fR \fIconfig\-file\fP
+A path where to store the last successful run command. This path needs to be
+writeable by crank and should probably be something like
+/var/run/crank/something.conf
+.TP
+\fB\fC-name\fR \fIprocess\-name\fP
+If passed, it sets the \-conf and \-sock arguments to
+a \fB\fC/var/run/crank/$name.$type\fR default (unless those are also passed).
+.TP
+\fB\fC-sock\fR \fInet\-addr\fP
+A port or path on which to bind. This socket exposes an rcp interface which
+is consumed by the \fB\fCcrankctl\fR command\-line.
+.PP
+\fInet\-addr\fP format: an address can be of the following forms:
+.RS
+.IP \(bu 2
+\fB\fC./<path>\fR
+.IP \(bu 2
+\fB\fC/<path>\fR
+.IP \(bu 2
+\fB\fC:<port>\fR
+.IP \(bu 2
+\fB\fCfd://3\fR
+.IP \(bu 2
+\fB\fCtcp[46]://[host]:<port>\fR
+.IP \(bu 2
+\fB\fCunix[packet]://<path>\fR
+.RE
+.SH PROCESS SIDE
+.PP
+A process is responsible to start and stop gracefully.
+.PP
+If the process sees a LISTEN\fIFDS environment variable it is supposed to use
+fd:3 as the accepting socket instead of binding it's own. Note that we don't
+use the systemd LISTEN\fPPID because of go's fork/exec limitation.
+.PP
+If the process sees a NOTIFY_FD environment variable it is supposed to send
+a "READY=1" datagram on it once it's ready to accept new client connection.
+.PP
+If the process receives a SIGTERM signal it is supposed to stop accepting new
+connections and stop gracefully or not the existing ones. Crank will
+forcefully terminate the process after a configured period.
+.SH ENVIRONMENT
+.TP
+\fB\fCCRANK_ADDR\fR, \fB\fCCRANK_CONF\fR, \fB\fCCRANK_NAME\fR, \fB\fCCRANK_SOCK\fR
+If non\-null it defines the default argument of teir corresponding flag.
+.SH FILES
+.PP
+The config file contains the serialization of config of the last
+successfully\-started process. In that sense it should not belong in /etc.
+.SH BUGS
+.PP
+The command name should have been chosen more carefully to reflect its
+purpose.
+.SH AUTHOR
+.PP
+Martyn Loughran 
+.MT martyn@mloughran.com
+.ME
+zimbatm 
+.MT zimbatm@zimbatm.com
+.ME
+Paweł Ledwoń 
+.MT pawel@pusher.com
+.ME
+.SH SEE ALSO
+.PP
+.BR crankctl (1), 
+.BR sd-daemon (3)

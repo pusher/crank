@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="md2man 2.0.3 https://github.com/sunaku/md2man" />
+  <title>crank(1) &mdash; restart your processes, slowly</title>
+  <link rel="stylesheet" href="style.css"/>
+  <!--[if lt IE 9]><script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
+</head>
+<body><div class="navbar"><div class="navbar-inner"><span class="brand"><a href="index.html#man">man</a>/crank.1</span></div></div><div class="container-fluid"><h1 id="CRANK-1-quot-APRIL-2014-quot-Crank-quot-User-Manuals-quot">CRANK 1 &quot;APRIL 2014&quot; Crank &quot;User Manuals&quot;</h1><h2 id="NAME">NAME</h2><p>crank - restart your processes, slowly</p><h2 id="SYNOPSIS">SYNOPSIS</h2><p><code>crank</code> [opts]</p><h2 id="DESCRIPTION">DESCRIPTION</h2><p>Crank&#39;s main goal is to handle restarts for servers who handle long-lived TCP
+socket connections. Traditional process managers tend to be rather brusque and
+kill the server. We want to be able to let the client an opportunity to
+reconnect somewhere else. We also want to load the new version and wait until
+it tells us it&#39;s ready and thus proove it&#39;s working before shutting down the
+old process.</p><p>Because <code>crank</code> exits when all the child processes are gone, you should run it
+under a system-level supervisor like upstart or systemd that handles restarts.</p><p>Processes run under crank needs to be adapted to benefit from all the features
+than crank provides. See the &quot;PROCESS SIDE&quot; section for more details.</p><h2 id="OPTIONS">OPTIONS</h2><p>Note that valid addr, conf and sock values are necessary for crank to run.</p><dl><dt><code>-addr</code> <em>net-addr</em></dt><dd>A port or path on which to bind. This socket is not used directly by crank
+but passed onto the child process using the systemd LISTEN<em>FDS convention.
+Note that unlike systemd we don&#39;t pass the LISTEN</em>PID environment variable
+(due to a limitation in the go fork/exec model)</dd></dl><dl><dt><code>-conf</code> <em>config-file</em></dt><dd>A path where to store the last successful run command. This path needs to be
+writeable by crank and should probably be something like
+/var/run/crank/something.conf</dd></dl><dl><dt><code>-name</code> <em>process-name</em></dt><dd>If passed, it sets the -conf and -sock arguments to
+a <code>/var/run/crank/$name.$type</code> default (unless those are also passed).</dd></dl><dl><dt><code>-sock</code> <em>net-addr</em></dt><dd>A port or path on which to bind. This socket exposes an rcp interface which
+is consumed by the <code>crankctl</code> command-line.</dd></dl><p><em>net-addr</em> format: an address can be of the following forms:</p>
+<ul>
+<li><code>./&lt;path&gt;</code></li>
+<li><code>/&lt;path&gt;</code></li>
+<li><code>:&lt;port&gt;</code></li>
+<li><code>fd://3</code></li>
+<li><code>tcp[46]://[host]:&lt;port&gt;</code></li>
+<li><code>unix[packet]://&lt;path&gt;</code></li>
+</ul>
+<h2 id="PROCESS-SIDE">PROCESS SIDE</h2><p>A process is responsible to start and stop gracefully.</p><p>If the process sees a LISTEN<em>FDS environment variable it is supposed to use
+fd:3 as the accepting socket instead of binding it&#39;s own. Note that we don&#39;t
+use the systemd LISTEN</em>PID because of go&#39;s fork/exec limitation.</p><p>If the process sees a NOTIFY_FD environment variable it is supposed to send
+a &quot;READY=1&quot; datagram on it once it&#39;s ready to accept new client connection.</p><p>If the process receives a SIGTERM signal it is supposed to stop accepting new
+connections and stop gracefully or not the existing ones. Crank will
+forcefully terminate the process after a configured period.</p><h2 id="ENVIRONMENT">ENVIRONMENT</h2><dl><dt><code>CRANK_ADDR</code>, <code>CRANK_CONF</code>, <code>CRANK_NAME</code>, <code>CRANK_SOCK</code></dt><dd>If non-null it defines the default argument of teir corresponding flag.</dd></dl><h2 id="FILES">FILES</h2><p>The config file contains the serialization of config of the last
+successfully-started process. In that sense it should not belong in /etc.</p><h2 id="BUGS">BUGS</h2><p>The command name should have been chosen more carefully to reflect its
+purpose.</p><h2 id="AUTHOR">AUTHOR</h2><p>Martyn Loughran <a href="mailto:martyn@mloughran.com">martyn@mloughran.com</a>
+zimbatm <a href="mailto:zimbatm@zimbatm.com">zimbatm@zimbatm.com</a>
+Paweł Ledwoń <a href="mailto:pawel@pusher.com">pawel@pusher.com</a></p><h2 id="SEE-ALSO">SEE ALSO</h2><p><a class="md2man-xref">crankctl(1)</a>, <a class="md2man-xref">sd-daemon(3)</a></p></div></body>
+</html>

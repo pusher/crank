@@ -1,0 +1,94 @@
+.TH CRANKCTL 1 "APRIL 2014" Crank "User Manuals"
+.SH NAME
+.PP
+crankctl \- crank control client
+.SH SYNOPSIS
+.PP
+\fB\fCcrankctl\fR \fB\fC<command>\fR [opts]
+.SH DESCRIPTION
+.PP
+\fB\fCcrankctl\fR allows to send commands to \fB\fCcrank\fR trough it's control socket.
+.SH OPTIONS
+.PP
+Global options:
+.TP
+\fB\fC-name\fR \fIprocess\-name\fP
+If passed, it sets the \-sock arguments to
+a \fB\fC/var/run/crank/$name.sock\fR default.
+.TP
+\fB\fC-sock\fR \fIpath\fP
+A path on which to connect. This should point to an existing unix socket
+controlled by crank.
+.SH COMMANDS
+.RS
+.IP \(bu 2
+\fB\fCcrankctl run [opts] -- [command ...args]\fR
+.RE
+.PP
+Used to start a new process. Once ready, crank terminates the old process. If
+the startup fails, crank leaves the old process running and untouched.
+.TP
+\fB\fC-start SEC\fR
+Sets the start timeout of the process in seconds.
+.TP
+\fB\fC-stop SEC\fR
+Sets the stop timeout of the process in seconds.
+.TP
+\fB\fC-wait\fR
+Waits for either the process to be ready or to fail. If the new process has
+failed, crankctl exits with an exit status of 1.
+.TP
+\fB\fCcommand ...args\fR
+Gives the command and args to run. If unspecified, the previous successful
+command is used.
+.RS
+.IP \(bu 2
+\fB\fCcrankctl ps [opts]\fR
+.RE
+.PP
+Displays the status of running processes. If no argument is passed, all
+processes are listed.
+.TP
+\fB\fC-starting\fR
+Selects all starting processes (should only be one)
+.TP
+\fB\fC-ready\fR
+Selects all ready processes (should only be one)
+.TP
+\fB\fC-stoppping\fR
+Selects all stoppping processes.
+.TP
+\fB\fC-pid PID\fR
+Selects a specific PID from the exisiting set. This flag is a AND filter
+unlike the other ones.
+.RS
+.IP \(bu 2
+\fB\fCcrankctl kill [opts]\fR
+.RE
+.PP
+Sends a signal to the target processes. If no argument is passes, no processes
+are signaled.
+.TP
+\fB\fC-signal SIGNAME\fR
+Provides the type of signal to send. If no signal is passed, SIGTERM is the
+default. Signals can be prefixed with "SIG" or not. Eg: SIGINT or INT
+.TP
+\fB\fC-starting\fR
+Selects all starting processes (should only be one)
+.TP
+\fB\fC-ready\fR
+Selects all ready processes (should only be one)
+.TP
+\fB\fC-stoppping\fR
+Selects all stoppping processes.
+.TP
+\fB\fC-pid PID\fR
+Selects a specific PID from the exisiting set. This flag is a AND filter
+unlike the other ones.
+.SH ENVIRONMENT
+.TP
+\fB\fCCRANK_NAME\fR, \fB\fCCRANK_SOCK\fR
+If non\-null it defines the default argument of their corresponding flag.
+.SH SEE ALSO
+.PP
+.BR crank (1)

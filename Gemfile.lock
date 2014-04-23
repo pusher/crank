@@ -5,10 +5,21 @@ GIT
     eventmachine (1.0.3)
 
 GEM
+  remote: https://rubygems.org/
   specs:
+    binman (3.3.2)
+      opener (>= 0.1.0, < 1)
+    md2man (2.0.3)
+      binman (~> 3.0)
+      redcarpet (~> 3.0)
+    opener (0.1.0)
+    rake (10.3.1)
+    redcarpet (3.1.1)
 
 PLATFORMS
   ruby
 
 DEPENDENCIES
   eventmachine!
+  md2man
+  rake
