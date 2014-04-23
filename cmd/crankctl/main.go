@@ -87,8 +87,8 @@ func main() {
 
 func Start(flag *flag.FlagSet) Command {
 	query := crank.StartQuery{}
-	flag.IntVar(&query.StopTimeout, "stop", -1, "Stop timeout in millis")
-	flag.IntVar(&query.StartTimeout, "start", -1, "Start timeout in millis")
+	flag.IntVar(&query.StopTimeout, "stop", -1, "Stop timeout in seconds")
+	flag.IntVar(&query.StartTimeout, "start", -1, "Start timeout in seconds")
 	//flag.BoolVar(&query.Wait, "wait", false, "Wait for a result")
 
 	flag.Usage = func() {

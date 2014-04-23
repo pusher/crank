@@ -52,11 +52,11 @@ func (self *API) Start(query *StartQuery, reply *StartReply) error {
 	}
 
 	if query.StartTimeout > 0 {
-		config.StartTimeout = time.Duration(query.StartTimeout) * time.Millisecond
+		config.StartTimeout = time.Duration(query.StartTimeout) * time.Second
 	}
 
 	if query.StopTimeout > 0 {
-		config.StopTimeout = time.Duration(query.StopTimeout) * time.Millisecond
+		config.StopTimeout = time.Duration(query.StopTimeout) * time.Second
 	}
 
 	// TODO: support the query.Wait flag
