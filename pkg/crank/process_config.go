@@ -14,6 +14,11 @@ type ProcessConfig struct {
 	StopTimeout  time.Duration `json:"stop_timeout"`
 }
 
+var DefaultConfig = &ProcessConfig{
+	StartTimeout: time.Second * 30,
+	StopTimeout:  time.Second * 30,
+}
+
 func loadProcessConfig(path string) (config *ProcessConfig, err error) {
 	var reader *os.File
 	if reader, err = os.Open(path); err != nil {
@@ -24,10 +29,10 @@ func loadProcessConfig(path string) (config *ProcessConfig, err error) {
 	config = new(ProcessConfig)
 	jsonDecoder := json.NewDecoder(reader)
 	if err = jsonDecoder.Decode(config); err != nil {
-		return nil, err
+		return DefaultConfig, err
 	}
 	if config.Command == "" {
-		return nil, fmt.Errorf("Missing command")
+		return config, fmt.Errorf("Missing command")
 	}
 	return
 }
