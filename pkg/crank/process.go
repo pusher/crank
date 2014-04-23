@@ -17,6 +17,9 @@ func startProcess(id int, config *ProcessConfig, bindSocket *os.File, events cha
 
 	ready = make(chan bool)
 
+	lock := make(chan bool)
+	defer close(lock)
+
 	if stdin, err = devnull.File(); err != nil {
 		return
 	}
@@ -27,6 +30,7 @@ func startProcess(id int, config *ProcessConfig, bindSocket *os.File, events cha
 	defer notifySocket.Close()
 
 	prefix := func() string {
+		<-lock // once the channel is closed this will never block
 		return p.String()
 	}
 	if logFile, err = startProcessLogger(os.Stdout, prefix); err != nil {
