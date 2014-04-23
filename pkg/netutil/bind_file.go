@@ -10,8 +10,12 @@ import (
 
 // Utility to open a file on a port, path or file descriptor
 func BindFile(addr string) (file *os.File, err error) {
-	if len(addr) > 0 && (addr[0] == '.' || addr[0] == '/') {
-		addr = "unix://" + addr
+	if len(addr) > 0 {
+		if addr[0] == '.' || addr[0] == '/' {
+			addr = "unix://" + addr
+		} else if addr[0] == ':' {
+			addr = "tcp://" + addr
+		}
 	}
 
 	u, err := url.Parse(addr)
