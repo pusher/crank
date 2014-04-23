@@ -17,6 +17,7 @@ var commands map[string]CommandSetup
 
 func init() {
 	commands = make(map[string]CommandSetup)
+	commands["start"] = Start
 	commands["ps"] = Ps
 	commands["kill"] = Kill
 
@@ -76,6 +77,24 @@ func main() {
 
 	if err = cmd(client); err != nil {
 		fail("command failed: %v\n", err)
+	}
+}
+
+func Start(flag *flag.FlagSet) Command {
+	query := crank.StartQuery{}
+	flag.StringVar(&query.Command, "command", "", "Command to run")
+	flag.IntVar(&query.StopTimeout, "stop", -1, "Stop timeout in millis")
+	flag.IntVar(&query.StartTimeout, "start", -1, "Start timeout in millis")
+	//flag.BoolVar(&query.Wait, "wait", false, "Wait for a result")
+
+	return func(client *rpc.Client) (err error) {
+		var reply crank.StartReply
+
+		if err = client.Call("crank.Start", &query, &reply); err != nil {
+			return
+		}
+
+		return
 	}
 }
 

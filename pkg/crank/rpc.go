@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/rpc"
 	"syscall"
+	"time"
 )
 
 type API struct {
@@ -29,6 +30,43 @@ type ProcessQuery struct {
 }
 
 type processFilter func(*Process) *Process
+
+// START
+
+type StartQuery struct {
+	Command      string
+	StartTimeout int
+	StopTimeout  int
+	Wait         bool
+}
+
+type StartReply struct {
+}
+
+func (self *API) Start(query *StartQuery, reply *StartReply) error {
+	// FIXME: concurrency access
+	config := self.m.config.clone()
+
+	if query.Command != "" {
+		config.Command = query.Command
+	}
+
+	if query.StartTimeout > 0 {
+		config.StartTimeout = time.Duration(query.StartTimeout) * time.Millisecond
+	}
+
+	if query.StopTimeout > 0 {
+		config.StopTimeout = time.Duration(query.StopTimeout) * time.Millisecond
+	}
+
+	// TODO: support the query.Wait flag
+
+	self.m.Start(config)
+
+	return nil
+}
+
+// PS
 
 type PsQuery struct {
 	ProcessQuery

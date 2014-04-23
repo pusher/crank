@@ -43,6 +43,12 @@ func (self *ProcessConfig) save(path string) (err error) {
 	return jsonEncoder.Encode(self)
 }
 
+func (self *ProcessConfig) clone() *ProcessConfig {
+	c := new(ProcessConfig)
+	(*c) = (*self)
+	return c
+}
+
 func (self *ProcessConfig) String() string {
 	return fmt.Sprintf("command=%v args=%v start_timeout=%v stop_timeout=%v", self.Command, self.Args, self.StartTimeout, self.StopTimeout)
 }
