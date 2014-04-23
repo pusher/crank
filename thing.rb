@@ -1,5 +1,7 @@
 #!/usr/bin/env ruby
 
+$stdout.sync = true
+
 require 'socket'
 
 require 'set'
@@ -125,6 +127,7 @@ class CrankedServer
     # Fallback to starting accepting immediately in the absence of crank
     start_accepting()
 
+    puts "READY"
     Sd.notify_ready
   end
 
@@ -173,10 +176,12 @@ class Server
 
   def conn_add(c)
     @connections.add(c)
+    puts report
   end
 
   def conn_rem(c)
     @connections.delete(c)
+    puts report
     @onempty_callback.call if @onempty_callback
   end
 

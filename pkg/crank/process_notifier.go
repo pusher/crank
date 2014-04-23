@@ -31,6 +31,7 @@ func startProcessNotifier(ready chan<- bool) (w *os.File, err error) {
 func runProcessNotifier(r *os.File, ready chan<- bool) {
 	// Read on pipe from child, and process commands
 	defer r.Close()
+	defer close(ready)
 
 	var err error
 	var command string
@@ -43,7 +44,7 @@ func runProcessNotifier(r *os.File, ready chan<- bool) {
 			return
 		}
 		if err != nil {
-			log.Printf("Error reading on pipe: %v", err)
+			fail("Reading on pipe", err)
 			return
 		}
 

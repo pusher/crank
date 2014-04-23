@@ -4,16 +4,17 @@ import (
 	"fmt"
 	"net/rpc"
 	"syscall"
+	"time"
 )
 
-type RPC struct {
-	*rpc.Server
+type API struct {
 	m *Manager
 }
 
-func NewRPC(m *Manager) *RPC {
-	server := &RPC{rpc.NewServer(), m}
-	err := server.RegisterName("crank", server)
+func NewRPCServer(m *Manager) *rpc.Server {
+	server := rpc.NewServer()
+	api := &API{m}
+	err := server.RegisterName("crank", api)
 	if err != nil {
 		panic(err) // Coding error
 	}
@@ -30,41 +31,99 @@ type ProcessQuery struct {
 
 type processFilter func(*Process) *Process
 
+// START
+
+type StartQuery struct {
+	Command      string
+	StartTimeout int
+	StopTimeout  int
+	Wait         bool
+}
+
+type StartReply struct {
+}
+
+func (self *API) Start(query *StartQuery, reply *StartReply) error {
+	// FIXME: concurrency access
+	config := self.m.config.clone()
+
+	if query.Command != "" {
+		config.Command = query.Command
+	}
+
+	if query.StartTimeout > 0 {
+		config.StartTimeout = time.Duration(query.StartTimeout) * time.Millisecond
+	}
+
+	if query.StopTimeout > 0 {
+		config.StopTimeout = time.Duration(query.StopTimeout) * time.Millisecond
+	}
+
+	// TODO: support the query.Wait flag
+
+	self.m.Start(config)
+
+	return nil
+}
+
+// PS
+
 type PsQuery struct {
 	ProcessQuery
 }
 
 type PsReply struct {
-	Start    *Process
-	Current  *Process
-	Shutdown []*Process
+	PS []*ProcessInfo
 }
 
-func (self *RPC) Ps(query *PsQuery, reply *PsReply) error {
-	all := !query.Start && !query.Current && !query.Shutdown
+type ProcessInfo struct {
+	Pid   int
+	State string
+	Usage *syscall.Rusage
+	Err   error
+}
 
-	var filterPid processFilter
-	if query.Pid > 0 {
-		filterPid = func(p *Process) *Process {
-			if p == nil || p.Pid != query.Pid {
-				return nil
-			}
-			return p
-		}
+func (pi *ProcessInfo) String() string {
+	since := func(tv syscall.Timeval) time.Duration {
+		return time.Duration(tv.Nano())
+	}
+
+	if pi.Err != nil {
+		return fmt.Sprintf("%d %s\n", pi.Pid, pi.State, pi.Err)
 	} else {
-		filterPid = func(p *Process) *Process {
-			return p
-		}
+		usage := pi.Usage
+		return fmt.Sprintf("%d %s %v %v %v\n", pi.Pid, pi.State, since(usage.Utime), since(usage.Stime), ByteCount(usage.Maxrss))
+	}
+}
+
+func (self *API) Ps(query *PsQuery, reply *PsReply) error {
+	ss := self.m.childs
+
+	if query.Pid > 0 {
+		ss = ss.choose(func(p *Process, _ ProcessState) bool {
+			return p.Pid() == query.Pid
+		})
 	}
 
-	if query.Start || all {
-		reply.Start = filterPid(self.m.newProcess)
+	if query.Start || query.Current || query.Shutdown {
+		ss = ss.choose(func(p *Process, state ProcessState) bool {
+			if query.Start && (state == PROCESS_STARTING) {
+				return true
+			}
+			if query.Current && (state == PROCESS_READY) {
+				return true
+			}
+			if query.Shutdown && (state == PROCESS_STOPPING) {
+				return true
+			}
+			return false
+		})
 	}
-	if query.Current || all {
-		reply.Current = filterPid(self.m.currentProcess)
-	}
-	if query.Shutdown || all {
-		reply.Shutdown = processSelect(self.m.oldProcesses.toArray(), filterPid)
+
+	reply.PS = make([]*ProcessInfo, 0, ss.len())
+	for s, state := range ss {
+		usage, err := s.Usage()
+		reply.PS = append(reply.PS, &ProcessInfo{s.Pid(), state.String(), usage, err})
 	}
 
 	fmt.Println(query, reply)
@@ -73,66 +132,56 @@ func (self *RPC) Ps(query *PsQuery, reply *PsReply) error {
 
 type KillQuery struct {
 	ProcessQuery
-	Signal syscall.Signal
+	Signal string
 	Wait   bool
 }
 
 type KillReply struct {
 }
 
-func (self *RPC) Kill(query *KillQuery, reply *KillReply) (err error) {
-	// TODO: By default don't kill any ?
-
-	if query.Signal == 0 {
-		query.Signal = syscall.SIGTERM
-	}
-
-	var processes []*Process
-	var filterPid processFilter
-	if query.Pid > 0 {
-		filterPid = func(p *Process) *Process {
-			if p == nil || p.Pid != query.Pid {
-				return nil
-			}
-			return p
-		}
+func (self *API) Kill(query *KillQuery, reply *KillReply) (err error) {
+	var sig syscall.Signal
+	if query.Signal == "" {
+		sig = syscall.SIGTERM
 	} else {
-		filterPid = func(p *Process) *Process {
-			return p
+		if sig, err = str2signal(query.Signal); err != nil {
+			return
 		}
 	}
 
-	appendProcess := func(p *Process) {
-		if p != nil {
-			processes = append(processes, p)
-		}
+	var ss processSet
+	if query.Start || query.Current || query.Shutdown || query.Pid > 0 {
+		ss = self.m.childs
+	} else {
+		// Empty set
+		ss = EmptyProcessSet
 	}
 
-	if query.Start {
-		appendProcess(filterPid(self.m.newProcess))
-	}
-	if query.Current {
-		appendProcess(filterPid(self.m.currentProcess))
-	}
-	if query.Shutdown {
-		processes = append(processes, processSelect(self.m.oldProcesses.toArray(), filterPid)...)
+	if query.Start || query.Current || query.Shutdown {
+		ss = ss.choose(func(p *Process, state ProcessState) bool {
+			if query.Start && (state == PROCESS_STARTING) {
+				return true
+			}
+			if query.Current && (state == PROCESS_READY) {
+				return true
+			}
+			if query.Shutdown && (state == PROCESS_STOPPING) {
+				return true
+			}
+			return false
+		})
 	}
 
-	for _, p := range processes {
-		p.Signal(query.Signal)
+	if query.Pid > 0 {
+		ss = ss.choose(func(p *Process, _ ProcessState) bool {
+			return p.Pid() == query.Pid
+		})
 	}
+
+	ss.each(func(s *Process) {
+		s.Signal(sig)
+	})
 
 	fmt.Println(query, reply)
 	return
-}
-
-func processSelect(ps []*Process, filter processFilter) []*Process {
-	var processes []*Process
-	for _, p := range ps {
-		p2 := filter(p)
-		if p2 != nil {
-			processes = append(processes, p2)
-		}
-	}
-	return processes
 }

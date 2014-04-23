@@ -3,151 +3,170 @@ package crank
 import (
 	"log"
 	"os"
-	"sync"
 )
-
-type processSet map[*Process]bool
-
-func (self processSet) add(p *Process) {
-	self[p] = true
-}
-
-func (self processSet) rem(p *Process) {
-	delete(self, p)
-}
-
-func (self processSet) toArray() []*Process {
-	ary := make([]*Process, len(self))
-	i := 0
-	for v, _ := range self {
-		ary[i] = v
-		i += 1
-	}
-	return ary
-}
 
 // Manager manages multiple process groups
 type Manager struct {
-	configPath          string
-	config              *ProcessConfig
-	socket              *os.File
-	processNotification chan *Process
-	restartAction       chan bool
-	newProcess          *Process
-	currentProcess      *Process
-	oldProcesses        processSet
-	OnShutdown          sync.WaitGroup
-	shuttingDown        bool
+	configPath      string
+	config          *ProcessConfig
+	socket          *os.File
+	processCount    int
+	events          chan Event
+	startAction     chan *ProcessConfig
+	shutdownAction  chan bool
+	childs          processSet
+	shuttingDown    bool
+	startingTracker *TimeoutTracker
+	stoppingTracker *TimeoutTracker
 }
 
 func NewManager(configPath string, socket *os.File) *Manager {
 	config, err := loadProcessConfig(configPath)
 	if err != nil {
-		// TODO handle empty files as in the design
-		log.Fatal(err)
+		log.Println("Could not load config file: ", err)
 	}
 
 	manager := &Manager{
-		configPath:          configPath,
-		config:              config,
-		socket:              socket,
-		processNotification: make(chan *Process),
-		restartAction:       make(chan bool),
-		oldProcesses:        make(processSet),
+		configPath:      configPath,
+		config:          config,
+		socket:          socket,
+		events:          make(chan Event),
+		startAction:     make(chan *ProcessConfig),
+		childs:          make(processSet),
+		startingTracker: NewTimeoutTracker(),
+		stoppingTracker: NewTimeoutTracker(),
 	}
-	manager.OnShutdown.Add(1)
 	return manager
-}
-
-func (self *Manager) log(format string, v ...interface{}) {
-	log.Printf("[manager] "+format, v...)
 }
 
 // Run starts the event loop for the manager process
 func (self *Manager) Run() {
-	log.Println("Running the manager")
-
-	// TODO this goroutine never terminates
-	go func() {
-		for {
-			<-self.restartAction
-			self.log("Restarting the process")
-			self.startNewProcess()
-		}
-	}()
-
-	if self.config != nil {
-		self.restartAction <- true
+	if self.config != nil && self.config.Command != "" {
+		self.startProcess(self.config)
 	}
+
+	go self.startingTracker.Run()
+	go self.stoppingTracker.Run()
 
 	for {
-		p := <-self.processNotification
-		switch p.StateName() {
-		case "READY":
-			if p != self.newProcess {
-				panic("[manager] BUG, some other process is ready")
+		select {
+		// actions
+		case config := <-self.startAction:
+			if self.shuttingDown {
+				self.log("Ignore start, manager is shutting down")
+				continue
 			}
-			self.log("Process %d is ready", p.Pid)
-			if self.currentProcess != nil {
-				self.log("Shutting down the current process %d", self.currentProcess.Pid)
-				self.currentProcess.Shutdown()
-				self.oldProcesses.add(self.currentProcess)
+			if self.childs.starting() != nil {
+				self.log("Ignore start, new process is already being started")
+				continue
 			}
-			self.currentProcess = self.newProcess
-			self.newProcess = nil
-			self.currentProcess.config.save(self.configPath)
-		case "STOPPED":
-			self.onProcessExit(p)
+			self.startProcess(config)
+		case <-self.shutdownAction:
+			if self.shuttingDown {
+				self.log("Already shutting down")
+				continue
+			}
+			self.shuttingDown = true
+			self.childs.each(func(p *Process) {
+				self.stopProcess(p)
+			})
+		// timeouts
+		case process := <-self.startingTracker.timeoutNotification:
+			self.plog(process, "Killing, did not start in time.")
+			process.Kill()
+		case process := <-self.stoppingTracker.timeoutNotification:
+			self.plog(process, "Killing, did not stop in time.")
+			process.Kill()
+		// process state transitions
+		case e := <-self.events:
+			switch event := e.(type) {
+			case *ProcessReadyEvent:
+				process := event.process
+				self.startingTracker.Remove(process)
+				if process != self.childs.starting() {
+					self.plog(process, "Oops, some other process is ready")
+					continue
+				}
+				self.plog(process, "Process is ready")
+				current := self.childs.ready()
+				if current != nil {
+					self.plog(current, "Shutting down old current")
+					self.stopProcess(current)
+				}
+				err := process.config.save(self.configPath)
+				if err != nil {
+					self.log("Failed saving the config: %s", err)
+				}
+				self.childs.updateState(process, PROCESS_READY)
+			case *ProcessExitEvent:
+				process := event.process
+
+				self.startingTracker.Remove(process)
+				self.stoppingTracker.Remove(process)
+				self.childs.rem(process)
+
+				self.plog(process, "Process exited. code=%d err=%v", event.code, event.err)
+
+				if self.childs.len() == 0 {
+					goto exit
+				}
+			default:
+				fail("Unknown event: ", e)
+			}
 		}
 	}
+
+exit:
+
+	// Cleanup
+	self.childs.each(func(p *Process) {
+		p.Kill()
+	})
 }
 
 // Restart queues and starts excecuting a restart job to replace the old process group with a new one.
-func (self *Manager) Restart() {
-	self.restartAction <- true
+func (self *Manager) Reload() {
+	self.Start(self.config)
+}
+
+func (self *Manager) Start(c *ProcessConfig) {
+	self.startAction <- c
 }
 
 func (self *Manager) Shutdown() {
-	if self.shuttingDown {
-		self.log("Trying to shutdown twice !")
+	self.shutdownAction <- true
+}
+
+// Private methods
+
+func (_ *Manager) log(format string, v ...interface{}) {
+	log.Printf("[manager] "+format, v...)
+}
+
+func (m *Manager) plog(p *Process, format string, v ...interface{}) {
+	args := make([]interface{}, 1, 1+len(v))
+	args[0] = p
+	args = append(args, v...)
+	log.Printf("%s "+format, args...)
+}
+
+func (self *Manager) startProcess(config *ProcessConfig) {
+	self.log("Starting a new process: %s", config)
+	self.processCount += 1
+	process, err := startProcess(self.processCount, config, self.socket, self.events)
+	if err != nil {
+		self.log("Failed to start the process", err)
 		return
 	}
-	self.shuttingDown = true
-	if self.newProcess != nil {
-		self.newProcess.Kill()
-	}
-	if self.currentProcess != nil {
-		self.currentProcess.Kill()
-	}
-	for process, _ := range self.oldProcesses {
-		process.Kill()
-	}
-	self.OnShutdown.Done()
+	self.childs.add(process, PROCESS_STARTING)
+	self.startingTracker.Add(process, process.config.StartTimeout)
 }
 
-func (self *Manager) startNewProcess() {
-	self.log("Starting a new process")
-	if self.newProcess != nil {
-		self.log("New process is already being started")
-		return // TODO what do we want to do in this case
+func (self *Manager) stopProcess(process *Process) {
+	if self.childs[process] == PROCESS_STOPPING {
+		return
 	}
-	self.newProcess = newProcess(self.config, self.socket, self.processNotification)
-	self.newProcess.Start()
-}
-
-func (self *Manager) onProcessExit(p *Process) {
-	self.log("Process %d exited", p.Pid)
-	// TODO process exit status?
-	if p == self.newProcess {
-		self.log("Process exited in the new status")
-		self.newProcess = nil
-	} else if p == self.currentProcess {
-		self.log("Process exited in the current status")
-		self.currentProcess = nil
-		self.Shutdown()
-		// TODO: shutdown
-	} else {
-		self.log("Process exited in the old status")
-		self.oldProcesses.rem(p)
-	}
+	process.Shutdown()
+	self.stoppingTracker.Add(process, process.config.StopTimeout)
+	self.childs.updateState(process, PROCESS_STOPPING)
 }

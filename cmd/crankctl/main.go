@@ -11,16 +11,26 @@ import (
 type Command func(*rpc.Client) error
 type CommandSetup func(*flag.FlagSet) Command
 
+var flags *flag.FlagSet
 var run string
 var commands map[string]CommandSetup
 
 func init() {
-	defaultFlags(flag.CommandLine)
-
-	// TODO: show all the available commands in usage
 	commands = make(map[string]CommandSetup)
+	commands["start"] = Start
 	commands["ps"] = Ps
 	commands["kill"] = Kill
+
+	flags = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	flags.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage: %s [opts] <command> [command opts]\n\nOptions:\n", os.Args[0])
+		flags.PrintDefaults()
+		fmt.Fprintf(os.Stderr, "\nCommands:\n")
+		for name := range commands {
+			fmt.Fprintf(os.Stderr, "  %s\n", name)
+		}
+	}
+	defaultFlags(flags)
 }
 
 func defaultFlags(flagSet *flag.FlagSet) {
@@ -29,15 +39,18 @@ func defaultFlags(flagSet *flag.FlagSet) {
 
 func fail(reason string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, reason, args...)
-	flag.Usage()
+	flags.Usage()
 	os.Exit(1)
 }
 
 func main() {
 	var err error
-	flag.Parse()
 
-	command := flag.Arg(0)
+	if err = flags.Parse(os.Args[1:]); err != nil {
+		panic(err)
+	}
+
+	command := flags.Arg(0)
 
 	if command == "" {
 		fail("command missing\n")
@@ -53,7 +66,7 @@ func main() {
 
 	cmd := cmdSetup(flagSet)
 
-	if err = flagSet.Parse(flag.Args()[1:]); err != nil {
+	if err = flagSet.Parse(flags.Args()[1:]); err != nil {
 		fail("oops: %s\n", err)
 	}
 
@@ -64,6 +77,24 @@ func main() {
 
 	if err = cmd(client); err != nil {
 		fail("command failed: %v\n", err)
+	}
+}
+
+func Start(flag *flag.FlagSet) Command {
+	query := crank.StartQuery{}
+	flag.StringVar(&query.Command, "command", "", "Command to run")
+	flag.IntVar(&query.StopTimeout, "stop", -1, "Stop timeout in millis")
+	flag.IntVar(&query.StartTimeout, "start", -1, "Start timeout in millis")
+	//flag.BoolVar(&query.Wait, "wait", false, "Wait for a result")
+
+	return func(client *rpc.Client) (err error) {
+		var reply crank.StartReply
+
+		if err = client.Call("crank.Start", &query, &reply); err != nil {
+			return
+		}
+
+		return
 	}
 }
 
@@ -78,10 +109,8 @@ func Ps(flag *flag.FlagSet) Command {
 			return
 		}
 
-		printProcess("start", reply.Start)
-		printProcess("current", reply.Current)
-		for _, v := range reply.Shutdown {
-			printProcess("shutdown", v)
+		for _, pi := range reply.PS {
+			fmt.Println(pi)
 		}
 
 		return
@@ -91,8 +120,7 @@ func Ps(flag *flag.FlagSet) Command {
 func Kill(flag *flag.FlagSet) Command {
 	query := crank.KillQuery{}
 	processQueryFlags(&query.ProcessQuery, flag)
-	signalValue := SignalValue{&query.Signal}
-	flag.Var(&signalValue, "signal", "signal to send to the processes")
+	flag.StringVar(&query.Signal, "signal", "SIGTERM", "signal to send to the processes")
 	flag.BoolVar(&query.Wait, "wait", false, "wait for the target processes to exit")
 
 	return func(client *rpc.Client) (err error) {
@@ -107,10 +135,4 @@ func processQueryFlags(query *crank.ProcessQuery, flag *flag.FlagSet) {
 	flag.BoolVar(&query.Current, "current", false, "lists the current process")
 	flag.BoolVar(&query.Shutdown, "shutdown", false, "lists all processes shutting down")
 	flag.IntVar(&query.Pid, "pid", 0, "filters to only include that pid")
-}
-
-func printProcess(t string, p *crank.Process) {
-	if p != nil {
-		fmt.Printf("%s: %d\n", t, p.Pid)
-	}
 }

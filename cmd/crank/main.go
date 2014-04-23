@@ -25,8 +25,6 @@ func init() {
 func main() {
 	flag.Parse()
 
-	// TODO: If required should not be a flag?
-	// TODO: refactor this
 	if addr == "" {
 		log.Fatal("Missing required flag: addr")
 	}
@@ -39,35 +37,36 @@ func main() {
 
 	socket, err := netutil.BindFile(addr)
 	if err != nil {
-		log.Fatal("OOPS", err)
+		log.Fatal("addr socket failed: ", err)
 	}
+
+	// Make sure the path is writeable
+	f, err := os.OpenFile(conf, os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		log.Fatal("Could not open config file", conf, err)
+	}
+	f.Close()
 
 	rpcFile, err := netutil.BindFile(run)
 	if err != nil {
-		log.Fatal("bind run path failed: ", err)
+		log.Fatal("run socket failed: ", err)
 	}
 	rpcListener, err := net.FileListener(rpcFile)
 	if err != nil {
-		log.Fatal("BUG: ", err)
+		log.Fatal("BUG(rpcListener) : ", err)
 	}
-	log.Println("rpcFile: ", rpcFile.Name())
 
 	manager := crank.NewManager(conf, socket)
-
-	rpc := crank.NewRPC(manager)
-
-	go manager.Run()
-
-	go onSignal(manager.Restart, syscall.SIGHUP)
+	go onSignal(manager.Reload, syscall.SIGHUP)
 	go onSignal(manager.Shutdown, syscall.SIGTERM, syscall.SIGINT)
 
-	go func() {
-		manager.OnShutdown.Wait()
-		rpcListener.Close()
-		os.Remove(rpcFile.Name())
-	}()
+	rpc := crank.NewRPCServer(manager)
+	go rpc.Accept(rpcListener)
 
-	rpc.Accept(rpcListener)
+	manager.Run() // Blocking
+
+	// Shutdown
+	os.Remove(rpcFile.Name())
 
 	log.Println("Bye!")
 }

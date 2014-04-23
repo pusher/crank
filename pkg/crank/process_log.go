@@ -4,35 +4,45 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"log"
+	"os"
 	"time"
 )
 
-type processLog struct {
-	out io.Writer
-	p   *Process
+// NOTE: the logger will shutdown if a line is bigger than bufio.MaxScanTokenSize
+//       (64k at the moment)
+
+func startProcessLogger(out io.Writer, tag func() string) (w *os.File, err error) {
+	var r *os.File
+
+	r, w, err = os.Pipe()
+	if err != nil {
+		return
+	}
+
+	go runProcesssLogger(out, r, tag)
+
+	return w, nil
 }
 
-func newProcessLog(out io.Writer, p *Process) *processLog {
-	return &processLog{out, p}
-}
+func runProcesssLogger(out io.Writer, r *os.File, tag func() string) {
+	defer r.Close()
 
-func (self *processLog) copy(r io.Reader) {
+	var line string
+
 	// Use scanner to read lines from the input
 	scanner := bufio.NewScanner(r)
-	var line string
 
 	for scanner.Scan() {
 		// e.g. Mar 18 10:08:13.839 (1)[69282] Logentry
 		line = fmt.Sprintln(
 			time.Now().Format(time.StampMilli),
-			fmt.Sprintf("[%v]", self.p.Pid),
+			tag(),
 			scanner.Text(),
 		)
-		self.out.Write([]byte(line))
+		out.Write([]byte(line))
 	}
 
 	if err := scanner.Err(); err != nil {
-		log.Println("ERROR:", err)
+		fail(err)
 	}
 }

@@ -2,12 +2,14 @@ package crank
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"time"
 )
 
 type ProcessConfig struct {
 	Command      string        `json:"command"`
+	Args         []string      `json:"args"`
 	StartTimeout time.Duration `json:"start_timeout"`
 	StopTimeout  time.Duration `json:"stop_timeout"`
 }
@@ -21,7 +23,12 @@ func loadProcessConfig(path string) (config *ProcessConfig, err error) {
 
 	config = new(ProcessConfig)
 	jsonDecoder := json.NewDecoder(reader)
-	err = jsonDecoder.Decode(config)
+	if err = jsonDecoder.Decode(config); err != nil {
+		return nil, err
+	}
+	if config.Command == "" {
+		return nil, fmt.Errorf("Missing command")
+	}
 	return
 }
 
@@ -34,4 +41,14 @@ func (self *ProcessConfig) save(path string) (err error) {
 
 	jsonEncoder := json.NewEncoder(writer)
 	return jsonEncoder.Encode(self)
+}
+
+func (self *ProcessConfig) clone() *ProcessConfig {
+	c := new(ProcessConfig)
+	(*c) = (*self)
+	return c
+}
+
+func (self *ProcessConfig) String() string {
+	return fmt.Sprintf("command=%v args=%v start_timeout=%v stop_timeout=%v", self.Command, self.Args, self.StartTimeout, self.StopTimeout)
 }
