@@ -3,6 +3,7 @@ package crank
 import (
 	"fmt"
 	"log"
+	"path"
 	"runtime"
 	"time"
 )
@@ -13,6 +14,28 @@ var neverChan <-chan time.Time
 
 func init() {
 	neverChan = make(chan time.Time)
+}
+
+const VAR_PREFIX = "/var/run/crank"
+
+func DefaultConf(conf string, name string) string {
+	if conf != "" {
+		return conf
+	}
+	if name == "" {
+		return path.Join(VAR_PREFIX, name+".json")
+	}
+	return ""
+}
+
+func DefaultSock(sock string, name string) string {
+	if sock != "" {
+		return sock
+	}
+	if name == "" {
+		return path.Join(VAR_PREFIX, name+".sock")
+	}
+	return ""
 }
 
 // Used in dark corners of the app where behavior is undefined.

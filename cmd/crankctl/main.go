@@ -11,9 +11,12 @@ import (
 type Command func(*rpc.Client) error
 type CommandSetup func(*flag.FlagSet) Command
 
-var flags *flag.FlagSet
-var sock string
-var commands map[string]CommandSetup
+var (
+	commands map[string]CommandSetup
+	flags    *flag.FlagSet
+	name     string
+	sock     string
+)
 
 func init() {
 	commands = make(map[string]CommandSetup)
@@ -35,6 +38,7 @@ func init() {
 
 func defaultFlags(flagSet *flag.FlagSet) {
 	flagSet.StringVar(&sock, "sock", sock, "path to control socket")
+	flagSet.StringVar(&name, "name", name, "crank process name. Used to infer -sock if specified.")
 }
 
 func fail(reason string, args ...interface{}) {
@@ -70,6 +74,7 @@ func main() {
 		fail("oops: %s\n", err)
 	}
 
+	sock = crank.DefaultSock(sock, name)
 	client, err := rpc.Dial("unix", sock)
 	if err != nil {
 		fail("couldn't connect: %s\n", err)

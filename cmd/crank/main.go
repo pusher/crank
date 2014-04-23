@@ -13,26 +13,31 @@ import (
 var (
 	addr string
 	conf string
+	name string
 	sock string
 )
 
 func init() {
 	flag.StringVar(&addr, "addr", os.Getenv("CRANK_ADDR"), "external address to bind (e.g. 'tcp://:80')")
 	flag.StringVar(&conf, "conf", os.Getenv("CRANK_CONF"), "path to the process config file")
+	flag.StringVar(&conf, "name", os.Getenv("CRANK_NAME"), "crank process name. Used to infer -conf and -sock if specified.")
 	flag.StringVar(&sock, "sock", os.Getenv("CRANK_SOCK"), "rpc socket address")
 }
 
 func main() {
 	flag.Parse()
 
+	conf = crank.DefaultConf(conf, name)
+	sock = crank.DefaultSock(sock, name)
+
 	if addr == "" {
 		log.Fatal("Missing required flag: addr")
 	}
 	if conf == "" {
-		log.Fatal("Missing required flag: conf")
+		log.Fatal("Missing required flag: conf or name")
 	}
 	if sock == "" {
-		log.Fatal("Missing required flag: sock")
+		log.Fatal("Missing required flag: sock or name")
 	}
 
 	socket, err := netutil.BindFile(addr)
