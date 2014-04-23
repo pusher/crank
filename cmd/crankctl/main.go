@@ -42,7 +42,7 @@ func defaultFlags(flagSet *flag.FlagSet) {
 }
 
 func fail(reason string, args ...interface{}) {
-	fmt.Fprintf(os.Stderr, reason, args...)
+	fmt.Fprintf(os.Stderr, "ERROR: "+reason+"\n\n", args...)
 	flags.Usage()
 	os.Exit(1)
 }
@@ -57,12 +57,12 @@ func main() {
 	command := flags.Arg(0)
 
 	if command == "" {
-		fail("command missing\n")
+		fail("command missing")
 	}
 
 	cmdSetup, ok := commands[command]
 	if !ok {
-		fail("unknown command %s\n", command)
+		fail("unknown command %s", command)
 	}
 
 	flagSet := flag.NewFlagSet(os.Args[0]+" "+command, flag.ExitOnError)
@@ -71,17 +71,17 @@ func main() {
 	cmd := cmdSetup(flagSet)
 
 	if err = flagSet.Parse(flags.Args()[1:]); err != nil {
-		fail("oops: %s\n", err)
+		fail("oops: %s", err)
 	}
 
 	sock = crank.DefaultSock(sock, name)
 	client, err := rpc.Dial("unix", sock)
 	if err != nil {
-		fail("couldn't connect: %s\n", err)
+		fail("couldn't connect: %s", err)
 	}
 
 	if err = cmd(client); err != nil {
-		fail("command failed: %v\n", err)
+		fail("command failed: %v", err)
 	}
 }
 
