@@ -20,7 +20,7 @@ var (
 
 func init() {
 	commands = make(map[string]CommandSetup)
-	commands["start"] = Start
+	commands["run"] = Run
 	commands["ps"] = Ps
 	commands["kill"] = Kill
 
@@ -85,14 +85,14 @@ func main() {
 	}
 }
 
-func Start(flag *flag.FlagSet) Command {
+func Run(flag *flag.FlagSet) Command {
 	query := crank.StartQuery{}
 	flag.IntVar(&query.StopTimeout, "stop", -1, "Stop timeout in seconds")
 	flag.IntVar(&query.StartTimeout, "start", -1, "Start timeout in seconds")
 	//flag.BoolVar(&query.Wait, "wait", false, "Wait for a result")
 
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage of %s start [opts] -- [command ...args]:\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Usage of %s run [opts] -- [command ...args]:\n", os.Args[0])
 		flag.PrintDefaults()
 	}
 
@@ -104,7 +104,7 @@ func Start(flag *flag.FlagSet) Command {
 			query.Command = flag.Args()
 		}
 
-		if err = client.Call("crank.Start", &query, &reply); err != nil {
+		if err = client.Call("crank.Run", &query, &reply); err != nil {
 			return
 		}
 

@@ -43,7 +43,7 @@ type StartQuery struct {
 type StartReply struct {
 }
 
-func (self *API) Start(query *StartQuery, reply *StartReply) error {
+func (self *API) Run(query *StartQuery, reply *StartReply) error {
 	done := make(chan error, 1)
 	self.m.actions <- &StartAction{query, reply, done}
 	return <-done
