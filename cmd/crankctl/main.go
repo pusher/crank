@@ -131,8 +131,8 @@ func Kill(flag *flag.FlagSet) Command {
 }
 
 func processQueryFlags(query *crank.ProcessQuery, flag *flag.FlagSet) {
-	flag.BoolVar(&query.Start, "start", false, "lists the starting process")
-	flag.BoolVar(&query.Current, "current", false, "lists the current process")
-	flag.BoolVar(&query.Shutdown, "shutdown", false, "lists all processes shutting down")
+	flag.BoolVar(&query.Starting, "starting", false, "lists the starting process")
+	flag.BoolVar(&query.Ready, "ready", false, "lists the ready process")
+	flag.BoolVar(&query.Stopping, "stoppping", false, "lists all processes shutting down")
 	flag.IntVar(&query.Pid, "pid", 0, "filters to only include that pid")
 }

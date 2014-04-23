@@ -23,9 +23,9 @@ func NewRPCServer(m *Manager) *rpc.Server {
 
 // Used by other query structs
 type ProcessQuery struct {
-	Start    bool
-	Current  bool
-	Shutdown bool
+	Starting bool
+	Ready    bool
+	Stopping bool
 	Pid      int
 }
 
@@ -105,15 +105,15 @@ func (self *API) Ps(query *PsQuery, reply *PsReply) error {
 		})
 	}
 
-	if query.Start || query.Current || query.Shutdown {
+	if query.Starting || query.Ready || query.Stopping {
 		ss = ss.choose(func(p *Process, state ProcessState) bool {
-			if query.Start && (state == PROCESS_STARTING) {
+			if query.Starting && (state == PROCESS_STARTING) {
 				return true
 			}
-			if query.Current && (state == PROCESS_READY) {
+			if query.Ready && (state == PROCESS_READY) {
 				return true
 			}
-			if query.Shutdown && (state == PROCESS_STOPPING) {
+			if query.Stopping && (state == PROCESS_STOPPING) {
 				return true
 			}
 			return false
@@ -150,22 +150,22 @@ func (self *API) Kill(query *KillQuery, reply *KillReply) (err error) {
 	}
 
 	var ss processSet
-	if query.Start || query.Current || query.Shutdown || query.Pid > 0 {
+	if query.Starting || query.Ready || query.Stopping || query.Pid > 0 {
 		ss = self.m.childs
 	} else {
 		// Empty set
 		ss = EmptyProcessSet
 	}
 
-	if query.Start || query.Current || query.Shutdown {
+	if query.Starting || query.Ready || query.Stopping {
 		ss = ss.choose(func(p *Process, state ProcessState) bool {
-			if query.Start && (state == PROCESS_STARTING) {
+			if query.Starting && (state == PROCESS_STARTING) {
 				return true
 			}
-			if query.Current && (state == PROCESS_READY) {
+			if query.Ready && (state == PROCESS_READY) {
 				return true
 			}
-			if query.Shutdown && (state == PROCESS_STOPPING) {
+			if query.Stopping && (state == PROCESS_STOPPING) {
 				return true
 			}
 			return false
