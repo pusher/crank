@@ -32,6 +32,7 @@ func NewManager(configPath string, socket *os.File) *Manager {
 		socket:          socket,
 		events:          make(chan Event),
 		startAction:     make(chan *ProcessConfig),
+		shutdownAction:  make(chan bool),
 		childs:          make(processSet),
 		startingTracker: NewTimeoutTracker(),
 		stoppingTracker: NewTimeoutTracker(),
@@ -66,6 +67,7 @@ func (self *Manager) Run() {
 				self.log("Already shutting down")
 				continue
 			}
+			self.log("Shutting down")
 			self.shuttingDown = true
 			self.childs.each(func(p *Process) {
 				self.stopProcess(p)
