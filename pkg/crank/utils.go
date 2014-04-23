@@ -23,7 +23,7 @@ func DefaultConf(conf string, name string) string {
 		return conf
 	}
 	if name == "" {
-		return path.Join(VAR_PREFIX, name+".json")
+		return path.Join(VAR_PREFIX, name+".conf")
 	}
 	return ""
 }
