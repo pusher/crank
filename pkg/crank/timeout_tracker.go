@@ -28,7 +28,7 @@ func (self *TimeoutTracker) Add(p *Process, timeout time.Duration) {
 		return
 	}
 	self.mutex.Lock()
-	self.timeouts[p] = time.Now().Add(time.Millisecond * timeout)
+	self.timeouts[p] = time.Now().Add(timeout)
 	self.mutex.Unlock()
 }
 
