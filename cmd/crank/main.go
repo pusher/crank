@@ -13,13 +13,13 @@ import (
 var (
 	addr string
 	conf string
-	run  string
+	sock string
 )
 
 func init() {
 	flag.StringVar(&addr, "addr", os.Getenv("CRANK_ADDR"), "external address to bind (e.g. 'tcp://:80')")
 	flag.StringVar(&conf, "conf", os.Getenv("CRANK_CONF"), "path to the process config file")
-	flag.StringVar(&run, "run", os.Getenv("CRANK_RUN"), "rpc socket address")
+	flag.StringVar(&sock, "sock", os.Getenv("CRANK_SOCK"), "rpc socket address")
 }
 
 func main() {
@@ -31,8 +31,8 @@ func main() {
 	if conf == "" {
 		log.Fatal("Missing required flag: conf")
 	}
-	if run == "" {
-		log.Fatal("Missing required flag: run")
+	if sock == "" {
+		log.Fatal("Missing required flag: sock")
 	}
 
 	socket, err := netutil.BindFile(addr)
@@ -47,7 +47,7 @@ func main() {
 	}
 	f.Close()
 
-	rpcFile, err := netutil.BindFile(run)
+	rpcFile, err := netutil.BindFile(sock)
 	if err != nil {
 		log.Fatal("run socket failed: ", err)
 	}

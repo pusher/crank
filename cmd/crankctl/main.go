@@ -12,7 +12,7 @@ type Command func(*rpc.Client) error
 type CommandSetup func(*flag.FlagSet) Command
 
 var flags *flag.FlagSet
-var run string
+var sock string
 var commands map[string]CommandSetup
 
 func init() {
@@ -34,7 +34,7 @@ func init() {
 }
 
 func defaultFlags(flagSet *flag.FlagSet) {
-	flagSet.StringVar(&run, "run", run, "path to control socket")
+	flagSet.StringVar(&sock, "sock", sock, "path to control socket")
 }
 
 func fail(reason string, args ...interface{}) {
@@ -70,7 +70,7 @@ func main() {
 		fail("oops: %s\n", err)
 	}
 
-	client, err := rpc.Dial("unix", run)
+	client, err := rpc.Dial("unix", sock)
 	if err != nil {
 		fail("couldn't connect: %s\n", err)
 	}

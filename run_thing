@@ -1,2 +1,2 @@
 #!/bin/sh
-exec ./crank -addr tcp://:8080 -conf thing.json -run unix://./thing.sock
+exec ./crank -addr tcp://:8080 -conf thing.json -sock unix://./thing.sock
