@@ -91,6 +91,11 @@ func Start(flag *flag.FlagSet) Command {
 	flag.IntVar(&query.StartTimeout, "start", -1, "Start timeout in millis")
 	//flag.BoolVar(&query.Wait, "wait", false, "Wait for a result")
 
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage of %s start [opts] -- [command ...args]:\n", os.Args[0])
+		flag.PrintDefaults()
+	}
+
 	return func(client *rpc.Client) (err error) {
 		var reply crank.StartReply
 
