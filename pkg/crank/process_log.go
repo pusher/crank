@@ -8,8 +8,8 @@ import (
 	"time"
 )
 
-// NOTE: the logger will shutdown if a line is bigger than bufio.MaxScanTokenSize
-//       (64k at the moment)
+// FIXME: the logger will shutdown if a line is bigger than bufio.MaxScanTokenSize
+//        (64k at the moment)
 
 func startProcessLogger(out io.Writer, tag func() string) (w *os.File, err error) {
 	var r *os.File

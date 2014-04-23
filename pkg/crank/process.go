@@ -39,13 +39,12 @@ func startProcess(id int, config *ProcessConfig, bindSocket *os.File, events cha
 		config: config,
 	}
 
-	// TODO: Remove environment inheriting, set sensible defaults
 	env := os.Environ()
 	env = append(env, "LISTEN_FDS=1")
 	env = append(env, "NOTIFY_FD=4")
 
 	procAttr := os.ProcAttr{
-		// TODO: Dir: dir,
+		//Dir: dir,
 		Env: env,
 		Files: []*os.File{
 			stdin,
