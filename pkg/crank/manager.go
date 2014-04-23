@@ -93,7 +93,8 @@ func (self *Manager) Run() {
 					self.plog(current, "Shutting down old current")
 					self.stopProcess(current)
 				}
-				err := process.config.save(self.configPath)
+				self.config = process.config
+				err := self.config.save(self.configPath)
 				if err != nil {
 					self.log("Failed saving the config: %s", err)
 				}
