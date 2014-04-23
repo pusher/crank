@@ -12,8 +12,7 @@ type Manager struct {
 	socket          *os.File
 	processCount    int
 	events          chan Event
-	startAction     chan *ProcessConfig
-	shutdownAction  chan bool
+	actions         chan Action
 	childs          processSet
 	shuttingDown    bool
 	startingTracker *TimeoutTracker
@@ -31,8 +30,7 @@ func NewManager(configPath string, socket *os.File) *Manager {
 		config:          config,
 		socket:          socket,
 		events:          make(chan Event),
-		startAction:     make(chan *ProcessConfig),
-		shutdownAction:  make(chan bool),
+		actions:         make(chan Action),
 		childs:          make(processSet),
 		startingTracker: NewTimeoutTracker(),
 		stoppingTracker: NewTimeoutTracker(),
@@ -50,26 +48,31 @@ func (self *Manager) Run() {
 	for {
 		select {
 		// actions
-		case config := <-self.startAction:
-			if self.shuttingDown {
-				self.log("Ignore start, manager is shutting down")
-				continue
+		case a := <-self.actions:
+			switch action := a.(type) {
+			case ShutdownAction:
+				if self.shuttingDown {
+					self.log("Already shutting down")
+					continue
+				}
+				self.log("Shutting down")
+				self.shuttingDown = true
+				self.childs.each(func(p *Process) {
+					self.stopProcess(p)
+				})
+			case *StartAction:
+				if self.shuttingDown {
+					self.log("Ignore start, manager is shutting down")
+					continue
+				}
+				if self.childs.starting() != nil {
+					self.log("Ignore start, new process is already being started")
+					continue
+				}
+				self.startProcess(action.config)
+			default:
+				fail("Unknown action: ", a)
 			}
-			if self.childs.starting() != nil {
-				self.log("Ignore start, new process is already being started")
-				continue
-			}
-			self.startProcess(config)
-		case <-self.shutdownAction:
-			if self.shuttingDown {
-				self.log("Already shutting down")
-				continue
-			}
-			self.log("Shutting down")
-			self.shuttingDown = true
-			self.childs.each(func(p *Process) {
-				self.stopProcess(p)
-			})
 		// timeouts
 		case process := <-self.startingTracker.timeoutNotification:
 			self.plog(process, "Killing, did not start in time.")
@@ -131,11 +134,11 @@ func (self *Manager) Reload() {
 }
 
 func (self *Manager) Start(c *ProcessConfig) {
-	self.startAction <- c
+	self.actions <- &StartAction{c}
 }
 
 func (self *Manager) Shutdown() {
-	self.shutdownAction <- true
+	self.actions <- ShutdownAction(true)
 }
 
 // Private methods
