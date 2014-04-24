@@ -46,7 +46,15 @@ func NewManager(configPath string, socket *os.File) *Manager {
 
 // Run starts the event loop for the manager process
 func (self *Manager) Run() {
-	self.startProcess(self.config)
+	if len(self.config.Command) == 0 {
+		self.log("Ignoring process start, command is missing")
+	} else {
+		err := self.startProcess(self.config)
+		if err != nil {
+			self.log("Failed to start the process: %s", err)
+			return
+		}
+	}
 
 	go self.startingTracker.Run()
 	go self.stoppingTracker.Run()
@@ -102,6 +110,7 @@ func (self *Manager) Run() {
 
 				err := self.startProcess(config)
 				if err != nil {
+					self.log("Failed to start the process: %s", err)
 					action.done <- err
 					continue
 				}
@@ -307,16 +316,14 @@ func (m *Manager) plog(p *Process, format string, v ...interface{}) {
 }
 
 func (self *Manager) startProcess(config *ProcessConfig) error {
+	self.log("Starting a new process: %s", config)
 	if len(config.Command) == 0 {
-		self.log("Ignoring process start, command is missing")
 		return fmt.Errorf("Command is missing")
 	}
 
-	self.log("Starting a new process: %s", config)
 	self.processCount += 1
 	process, err := startProcess(self.processCount, config, self.socket, self.events)
 	if err != nil {
-		self.log("Failed to start the process", err)
 		return err
 	}
 
