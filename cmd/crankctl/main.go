@@ -42,9 +42,14 @@ func defaultFlags(flagSet *flag.FlagSet) {
 	flagSet.StringVar(&name, "name", name, "crank process name. Used to infer -sock if specified.")
 }
 
-func fail(reason string, args ...interface{}) {
+func usageError(reason string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, "ERROR: "+reason+"\n\n", args...)
 	flags.Usage()
+	os.Exit(1)
+}
+
+func fail(reason string, args ...interface{}) {
+	fmt.Fprintf(os.Stderr, "ERROR: "+reason+"\n", args...)
 	os.Exit(1)
 }
 
@@ -52,18 +57,18 @@ func main() {
 	var err error
 
 	if err = flags.Parse(os.Args[1:]); err != nil {
-		panic(err)
+		usageError("%s", err)
 	}
 
 	command := flags.Arg(0)
 
 	if command == "" {
-		fail("command missing")
+		usageError("command missing")
 	}
 
 	cmdSetup, ok := commands[command]
 	if !ok {
-		fail("unknown command %s", command)
+		usageError("unknown command %s", command)
 	}
 
 	flagSet := flag.NewFlagSet(os.Args[0]+" "+command, flag.ExitOnError)
@@ -72,7 +77,7 @@ func main() {
 	cmd := cmdSetup(flagSet)
 
 	if err = flagSet.Parse(flags.Args()[1:]); err != nil {
-		fail("oops: %s", err)
+		usageError("%s", err)
 	}
 
 	sock = crank.DefaultSock(sock, name)
