@@ -110,8 +110,6 @@ func (self *Manager) Run() {
 				} else {
 					action.done <- nil
 				}
-
-				action.done <- nil
 			case *InfoAction:
 				//query := action.query -- not used
 				reply := action.reply
