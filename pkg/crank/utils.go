@@ -22,7 +22,7 @@ func DefaultConf(conf string, name string) string {
 	if conf != "" {
 		return conf
 	}
-	if name == "" {
+	if name != "" {
 		return path.Join(VAR_PREFIX, name+".conf")
 	}
 	return ""
@@ -32,7 +32,7 @@ func DefaultSock(sock string, name string) string {
 	if sock != "" {
 		return sock
 	}
-	if name == "" {
+	if name != "" {
 		return path.Join(VAR_PREFIX, name+".sock")
 	}
 	return ""

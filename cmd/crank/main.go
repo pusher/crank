@@ -20,7 +20,7 @@ var (
 func init() {
 	flag.StringVar(&addr, "addr", os.Getenv("CRANK_ADDR"), "external address to bind (e.g. 'tcp://:80')")
 	flag.StringVar(&conf, "conf", os.Getenv("CRANK_CONF"), "path to the process config file")
-	flag.StringVar(&conf, "name", os.Getenv("CRANK_NAME"), "crank process name. Used to infer -conf and -sock if specified.")
+	flag.StringVar(&name, "name", os.Getenv("CRANK_NAME"), "crank process name. Used to infer -conf and -sock if specified.")
 	flag.StringVar(&sock, "sock", os.Getenv("CRANK_SOCK"), "rpc socket address")
 }
 
