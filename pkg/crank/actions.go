@@ -12,6 +12,12 @@ type StartAction struct {
 	done  chan<- error
 }
 
+type InfoAction struct {
+	query *InfoQuery
+	reply *InfoReply
+	done  chan<- error
+}
+
 type PsAction struct {
 	query *PsQuery
 	reply *PsReply

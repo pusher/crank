@@ -49,6 +49,20 @@ func (self *API) Run(query *StartQuery, reply *StartReply) error {
 	return <-done
 }
 
+// INFO
+
+type InfoQuery struct{}
+
+type InfoReply struct {
+	NumGoroutine int
+}
+
+func (self *API) Info(query *InfoQuery, reply *InfoReply) error {
+	done := make(chan error, 1)
+	self.m.actions <- &InfoAction{query, reply, done}
+	return <-done
+}
+
 // PS
 
 type PsQuery struct {
@@ -85,6 +99,8 @@ func (self *API) Ps(query *PsQuery, reply *PsReply) error {
 	self.m.actions <- &PsAction{query, reply, done}
 	return <-done
 }
+
+// KILL
 
 type KillQuery struct {
 	ProcessQuery

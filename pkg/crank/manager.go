@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"runtime"
 	"syscall"
 	"time"
 )
@@ -97,6 +98,13 @@ func (self *Manager) Run() {
 				// TODO: support the query.Wait flag
 
 				self.startProcess(config)
+
+				action.done <- nil
+			case *InfoAction:
+				//query := action.query -- not used
+				reply := action.reply
+
+				reply.NumGoroutine = runtime.NumGoroutine()
 
 				action.done <- nil
 			case *PsAction:

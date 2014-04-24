@@ -21,9 +21,10 @@ var (
 
 func init() {
 	commands = make(map[string]CommandSetup)
-	commands["run"] = Run
-	commands["ps"] = Ps
+	commands["info"] = Info
 	commands["kill"] = Kill
+	commands["ps"] = Ps
+	commands["run"] = Run
 
 	flags = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	flags.Usage = func() {
@@ -114,6 +115,23 @@ func Run(flag *flag.FlagSet) Command {
 		if err = client.Call("crank.Run", &query, &reply); err != nil {
 			return
 		}
+
+		return
+	}
+}
+
+func Info(flag *flag.FlagSet) Command {
+	query := crank.InfoQuery{}
+
+	return func(client *rpc.Client) (err error) {
+		var reply crank.InfoReply
+
+		if err = client.Call("crank.Info", &query, &reply); err != nil {
+			return
+		}
+
+		// TODO: version, ...
+		fmt.Println("goroutines:", reply.NumGoroutine)
 
 		return
 	}
