@@ -97,7 +97,7 @@ func Run(flag *flag.FlagSet) Command {
 	query := crank.StartQuery{}
 	flag.IntVar(&query.StopTimeout, "stop", -1, "Stop timeout in seconds")
 	flag.IntVar(&query.StartTimeout, "start", -1, "Start timeout in seconds")
-	//flag.BoolVar(&query.Wait, "wait", false, "Wait for a result")
+	flag.BoolVar(&query.Wait, "wait", false, "Wait for a result")
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage of %s run [opts] -- [command ...args]:\n", os.Args[0])
@@ -113,9 +113,15 @@ func Run(flag *flag.FlagSet) Command {
 		}
 
 		if err = client.Call("crank.Run", &query, &reply); err != nil {
+			fmt.Println("Failed to start:", err)
+			return
+		}
+		if reply.Code > 0 {
+			fmt.Println("Exited with code:", reply.Code)
 			return
 		}
 
+		fmt.Println("Started successfully")
 		return
 	}
 }

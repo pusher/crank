@@ -21,6 +21,8 @@ type Manager struct {
 	shuttingDown    bool
 	startingTracker *TimeoutTracker
 	stoppingTracker *TimeoutTracker
+	startingReply   *StartReply
+	startingDone    chan<- error
 }
 
 func NewManager(configPath string, socket *os.File) *Manager {
@@ -95,9 +97,19 @@ func (self *Manager) Run() {
 					config.StopTimeout = time.Duration(query.StopTimeout) * time.Second
 				}
 
-				// TODO: support the query.Wait flag
+				err := self.startProcess(config)
+				if err != nil {
+					action.done <- err
+					continue
+				}
 
-				self.startProcess(config)
+				if query.Wait {
+					self.log("RPC waiting for the process to start")
+					self.startingReply = action.reply
+					self.startingDone = action.done
+				} else {
+					action.done <- nil
+				}
 
 				action.done <- nil
 			case *InfoAction:
@@ -205,27 +217,45 @@ func (self *Manager) Run() {
 			case *ProcessReadyEvent:
 				process := event.process
 				self.startingTracker.Remove(process)
+
 				if process != self.childs.starting() {
 					self.plog(process, "Oops, some other process is ready")
 					continue
 				}
 				self.plog(process, "Process is ready")
+
 				current := self.childs.ready()
 				if current != nil {
 					self.plog(current, "Shutting down old current")
 					self.stopProcess(current)
 				}
+
 				self.config = process.config
 				err := self.config.save(self.configPath)
 				if err != nil {
 					self.log("Failed saving the config: %s", err)
 				}
+
+				if process == self.childs.starting() && self.startingReply != nil {
+					self.startingDone <- nil
+					self.startingReply = nil
+					self.startingDone = nil
+				}
+
 				self.childs.updateState(process, PROCESS_READY)
 			case *ProcessExitEvent:
 				process := event.process
 
 				self.startingTracker.Remove(process)
 				self.stoppingTracker.Remove(process)
+
+				if process == self.childs.starting() && self.startingReply != nil {
+					self.startingReply.Code = event.code
+					self.startingDone <- event.err
+					self.startingReply = nil
+					self.startingDone = nil
+				}
+
 				self.childs.rem(process)
 
 				self.plog(process, "Process exited. code=%d err=%v", event.code, event.err)
@@ -275,20 +305,23 @@ func (m *Manager) plog(p *Process, format string, v ...interface{}) {
 	log.Printf("%s "+format, args...)
 }
 
-func (self *Manager) startProcess(config *ProcessConfig) {
+func (self *Manager) startProcess(config *ProcessConfig) error {
 	if len(config.Command) == 0 {
 		self.log("Ignoring process start, command is missing")
-		return
+		return fmt.Errorf("Command is missing")
 	}
+
 	self.log("Starting a new process: %s", config)
 	self.processCount += 1
 	process, err := startProcess(self.processCount, config, self.socket, self.events)
 	if err != nil {
 		self.log("Failed to start the process", err)
-		return
+		return err
 	}
+
 	self.childs.add(process, PROCESS_STARTING)
 	self.startingTracker.Add(process, process.config.StartTimeout)
+	return nil
 }
 
 func (self *Manager) stopProcess(process *Process) {
