@@ -66,6 +66,9 @@ func (self *Manager) Run() {
 				self.childs.each(func(p *Process) {
 					self.stopProcess(p)
 				})
+				if self.childs.len() == 0 {
+					goto exit
+				}
 			case *StartAction:
 				query := action.query
 				//reply := action.reply -- not used
