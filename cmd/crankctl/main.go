@@ -2,6 +2,7 @@ package main
 
 import (
 	"../../pkg/crank"
+	"../../pkg/netutil"
 	"flag"
 	"fmt"
 	"net/rpc"
@@ -75,10 +76,11 @@ func main() {
 	}
 
 	sock = crank.DefaultSock(sock, name)
-	client, err := rpc.Dial("unix", sock)
+	conn, err := netutil.DialURI(sock)
 	if err != nil {
 		fail("couldn't connect: %s", err)
 	}
+	client := rpc.NewClient(conn)
 
 	if err = cmd(client); err != nil {
 		fail("command failed: %v", err)

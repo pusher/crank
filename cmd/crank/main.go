@@ -40,7 +40,7 @@ func main() {
 		log.Fatal("Missing required flag: sock or name")
 	}
 
-	socket, err := netutil.BindFile(addr)
+	socket, err := netutil.BindURI(addr)
 	if err != nil {
 		log.Fatal("addr socket failed: ", err)
 	}
@@ -52,7 +52,7 @@ func main() {
 	}
 	f.Close()
 
-	rpcFile, err := netutil.BindFile(sock)
+	rpcFile, err := netutil.BindURI(sock)
 	if err != nil {
 		log.Fatal("run socket failed: ", err)
 	}
