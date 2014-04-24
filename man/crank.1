@@ -23,7 +23,7 @@ than crank provides. See the "PROCESS SIDE" section for more details.
 .PP
 Note that valid addr, conf and sock values are necessary for crank to run.
 .TP
-\fB\fC-addr\fR \fInet\-addr\fP
+\fB\fC-addr\fR \fInet\-uri\fP
 A port or path on which to bind. This socket is not used directly by crank
 but passed onto the child process using the systemd LISTEN\fIFDS convention.
 Note that unlike systemd we don't pass the LISTEN\fPPID environment variable
@@ -38,20 +38,18 @@ writeable by crank and should probably be something like
 If passed, it sets the \-conf and \-sock arguments to
 a \fB\fC/var/run/crank/$name.$type\fR default (unless those are also passed).
 .TP
-\fB\fC-sock\fR \fInet\-addr\fP
+\fB\fC-sock\fR \fInet\-uri\fP
 A port or path on which to bind. This socket exposes an rcp interface which
 is consumed by the \fB\fCcrankctl\fR command\-line.
 .PP
-\fInet\-addr\fP format: an address can be of the following forms:
+\fInet\-uri\fP format: an address can be of the following forms:
 .RS
 .IP \(bu 2
-\fB\fC./<path>\fR
+\fB\fC<path>\fR (no : character allowed)
 .IP \(bu 2
-\fB\fC/<path>\fR
+\fB\fC[host]:<port>\fR
 .IP \(bu 2
-\fB\fC:<port>\fR
-.IP \(bu 2
-\fB\fCfd://3\fR
+\fB\fCfd://<fd_num>\fR
 .IP \(bu 2
 \fB\fCtcp[46]://[host]:<port>\fR
 .IP \(bu 2

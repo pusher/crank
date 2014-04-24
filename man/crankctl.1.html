@@ -8,8 +8,8 @@
   <!--[if lt IE 9]><script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
 </head>
 <body><div class="navbar"><div class="navbar-inner"><span class="brand"><a href="index.html#man">man</a>/crankctl.1</span></div></div><div class="container-fluid"><h1 id="CRANKCTL-1-quot-APRIL-2014-quot-Crank-quot-User-Manuals-quot">CRANKCTL 1 &quot;APRIL 2014&quot; Crank &quot;User Manuals&quot;</h1><h2 id="NAME">NAME</h2><p>crankctl - crank control client</p><h2 id="SYNOPSIS">SYNOPSIS</h2><p><code>crankctl</code> <code>&lt;command&gt;</code> [opts]</p><h2 id="DESCRIPTION">DESCRIPTION</h2><p><code>crankctl</code> allows to send commands to <code>crank</code> trough it&#39;s control socket.</p><h2 id="OPTIONS">OPTIONS</h2><p>Global options:</p><dl><dt><code>-name</code> <em>process-name</em></dt><dd>If passed, it sets the -sock arguments to
-a <code>/var/run/crank/$name.sock</code> default.</dd></dl><dl><dt><code>-sock</code> <em>path</em></dt><dd>A path on which to connect. This should point to an existing unix socket
-controlled by crank.</dd></dl><h2 id="COMMANDS">COMMANDS</h2>
+a <code>/var/run/crank/$name.sock</code> default.</dd></dl><dl><dt><code>-sock</code> <em>net-uri</em></dt><dd>A path or address on which to connect. This should point to an existing unix
+socket controlled by crank.</dd></dl><h2 id="COMMANDS">COMMANDS</h2>
 <ul>
 <li><code>crankctl run [opts] -- [command ...args]</code></li>
 </ul>
@@ -17,6 +17,10 @@ controlled by crank.</dd></dl><h2 id="COMMANDS">COMMANDS</h2>
 the startup fails, crank leaves the old process running and untouched.</p><dl><dt><code>-start SEC</code></dt><dd>Sets the start timeout of the process in seconds.</dd></dl><dl><dt><code>-stop SEC</code></dt><dd>Sets the stop timeout of the process in seconds.</dd></dl><dl><dt><code>-wait</code></dt><dd>Waits for either the process to be ready or to fail. If the new process has
 failed, crankctl exits with an exit status of 1.</dd></dl><dl><dt><code>command ...args</code></dt><dd>Gives the command and args to run. If unspecified, the previous successful
 command is used.</dd></dl>
+<ul>
+<li><code>crankctl info [opts]</code></li>
+</ul>
+<p>Returns infos on the crankctl runtime.</p>
 <ul>
 <li><code>crankctl ps [opts]</code></li>
 </ul>

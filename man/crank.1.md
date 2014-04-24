@@ -32,7 +32,7 @@ OPTIONS
 
 Note that valid addr, conf and sock values are necessary for crank to run.
 
-`-addr` *net-addr*
+`-addr` *net-uri*
   A port or path on which to bind. This socket is not used directly by crank
   but passed onto the child process using the systemd LISTEN_FDS convention.
   Note that unlike systemd we don't pass the LISTEN_PID environment variable
@@ -47,16 +47,15 @@ Note that valid addr, conf and sock values are necessary for crank to run.
   If passed, it sets the -conf and -sock arguments to
   a `/var/run/crank/$name.$type` default (unless those are also passed).
 
-`-sock` *net-addr*
+`-sock` *net-uri*
   A port or path on which to bind. This socket exposes an rcp interface which
   is consumed by the `crankctl` command-line.
 
-*net-addr* format: an address can be of the following forms:
+*net-uri* format: an address can be of the following forms:
 
-* `./<path>`
-* `/<path>`
-* `:<port>`
-* `fd://3`
+* `<path>` (no : character allowed)
+* `[host]:<port>`
+* `fd://<fd_num>`
 * `tcp[46]://[host]:<port>`
 * `unix[packet]://<path>`
 

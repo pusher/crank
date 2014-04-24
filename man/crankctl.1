@@ -16,9 +16,9 @@ Global options:
 If passed, it sets the \-sock arguments to
 a \fB\fC/var/run/crank/$name.sock\fR default.
 .TP
-\fB\fC-sock\fR \fIpath\fP
-A path on which to connect. This should point to an existing unix socket
-controlled by crank.
+\fB\fC-sock\fR \fInet\-uri\fP
+A path or address on which to connect. This should point to an existing unix
+socket controlled by crank.
 .SH COMMANDS
 .RS
 .IP \(bu 2
@@ -41,6 +41,12 @@ failed, crankctl exits with an exit status of 1.
 \fB\fCcommand ...args\fR
 Gives the command and args to run. If unspecified, the previous successful
 command is used.
+.RS
+.IP \(bu 2
+\fB\fCcrankctl info [opts]\fR
+.RE
+.PP
+Returns infos on the crankctl runtime.
 .RS
 .IP \(bu 2
 \fB\fCcrankctl ps [opts]\fR

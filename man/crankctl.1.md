@@ -25,9 +25,9 @@ Global options:
   If passed, it sets the -sock arguments to
   a `/var/run/crank/$name.sock` default.
 
-`-sock` *path*
-  A path on which to connect. This should point to an existing unix socket
-  controlled by crank.
+`-sock` *net-uri*
+  A path or address on which to connect. This should point to an existing unix
+  socket controlled by crank.
 
 COMMANDS
 --------
@@ -50,6 +50,10 @@ the startup fails, crank leaves the old process running and untouched.
 `command ...args`
   Gives the command and args to run. If unspecified, the previous successful
   command is used.
+
+* `crankctl info [opts]`
+
+Returns infos on the crankctl runtime.
 
 * `crankctl ps [opts]`
 
