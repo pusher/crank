@@ -41,6 +41,7 @@ type StartQuery struct {
 }
 
 type StartReply struct {
+	Code int
 }
 
 func (self *API) Run(query *StartQuery, reply *StartReply) error {
