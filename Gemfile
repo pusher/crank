@@ -1,5 +1,5 @@
 source 'https://rubygems.org'
 
-gem 'eventmachine', git: 'git@github.com:eventmachine/eventmachine.git'
+gem 'eventmachine', github: 'eventmachine/eventmachine'
 gem 'md2man'
 gem 'rake'

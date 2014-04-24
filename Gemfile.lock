@@ -1,5 +1,5 @@
 GIT
-  remote: git@github.com:eventmachine/eventmachine.git
+  remote: git://github.com/eventmachine/eventmachine.git
   revision: 16d04a0564ddf770420dd0d0f6e8ae4bc05c68cb
   specs:
     eventmachine (1.0.3)
