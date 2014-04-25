@@ -55,7 +55,7 @@ func (self *API) Run(query *StartQuery, reply *StartReply) error {
 type InfoQuery struct{}
 
 type InfoReply struct {
-	NumGoroutine int
+	Info *Info
 }
 
 func (self *API) Info(query *InfoQuery, reply *InfoReply) error {

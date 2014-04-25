@@ -1,4 +1,5 @@
 GOFLAGS=
+GOREV=-ldflags "-X main.build \"SHA: $(shell git rev-parse HEAD) (Built $(shell date) with $(shell go version))\""
 
 all: fmt crank crankctl
 
@@ -9,9 +10,9 @@ clean:
 	rm -f crank crankctl
 
 crank: cmd/crank/*.go pkg/**/*.go
-	cd cmd/$@ && go build $(GOFLAGS) -o ../../$@
+	go build $(GOREV) $(GOFLAGS) -o $@ ./cmd/$@
 
 crankctl: cmd/crankctl/*.go pkg/**/*.go
-	cd cmd/$@ && go build $(GOFLAGS) -o ../../$@
+	go build $(GOREV) $(GOFLAGS) -o $@ ./cmd/$@
 
 .PHONY: all fmt clean

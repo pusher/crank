@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"runtime"
 	"syscall"
 	"time"
 )
 
 // Manager manages multiple process groups
 type Manager struct {
+	build           string
 	configPath      string
 	config          *ProcessConfig
 	socket          *os.File
@@ -25,13 +25,14 @@ type Manager struct {
 	startingDone    chan<- error
 }
 
-func NewManager(configPath string, socket *os.File) *Manager {
+func NewManager(build string, configPath string, socket *os.File) *Manager {
 	config, err := loadProcessConfig(configPath)
 	if err != nil {
 		log.Println("Could not load config file: ", err)
 	}
 
 	manager := &Manager{
+		build:           build,
 		configPath:      configPath,
 		config:          config,
 		socket:          socket,
@@ -126,7 +127,7 @@ func (self *Manager) Run() {
 				//query := action.query -- not used
 				reply := action.reply
 
-				reply.NumGoroutine = runtime.NumGoroutine()
+				reply.Info = GetInfo(self.build)
 
 				action.done <- nil
 			case *PsAction:

@@ -11,10 +11,13 @@ import (
 )
 
 var (
-	addr string
-	conf string
-	name string
-	sock string
+	addr    string
+	conf    string
+	name    string
+	sock    string
+	version bool
+
+	build string
 )
 
 func init() {
@@ -22,10 +25,16 @@ func init() {
 	flag.StringVar(&conf, "conf", os.Getenv("CRANK_CONF"), "path to the process config file")
 	flag.StringVar(&name, "name", os.Getenv("CRANK_NAME"), "crank process name. Used to infer -conf and -sock if specified.")
 	flag.StringVar(&sock, "sock", os.Getenv("CRANK_SOCK"), "rpc socket address")
+	flag.BoolVar(&version, "version", false, "show version")
 }
 
 func main() {
 	flag.Parse()
+
+	if version {
+		log.Println(crank.GetInfo(build))
+		return
+	}
 
 	conf = crank.DefaultConf(conf, name)
 	sock = crank.DefaultSock(sock, name)
@@ -61,7 +70,7 @@ func main() {
 		log.Fatal("BUG(rpcListener) : ", err)
 	}
 
-	manager := crank.NewManager(conf, socket)
+	manager := crank.NewManager(build, conf, socket)
 	go onSignal(manager.Reload, syscall.SIGHUP)
 	go onSignal(manager.Shutdown, syscall.SIGTERM, syscall.SIGINT)
 

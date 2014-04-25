@@ -17,6 +17,9 @@ var (
 	flags    *flag.FlagSet
 	name     string
 	sock     string
+	version  bool
+
+	build string
 )
 
 func init() {
@@ -36,6 +39,7 @@ func init() {
 		}
 	}
 	defaultFlags(flags)
+	flags.BoolVar(&version, "version", false, "show version")
 }
 
 func defaultFlags(flagSet *flag.FlagSet) {
@@ -59,6 +63,11 @@ func main() {
 
 	if err = flags.Parse(os.Args[1:]); err != nil {
 		usageError("%s", err)
+	}
+
+	if version {
+		fmt.Println(crank.GetInfo(build))
+		return
 	}
 
 	command := flags.Arg(0)
@@ -136,8 +145,8 @@ func Info(flag *flag.FlagSet) Command {
 			return
 		}
 
-		// TODO: version, ...
-		fmt.Println("goroutines:", reply.NumGoroutine)
+		fmt.Printf("crankctl\n-------\n%s\n\n", crank.GetInfo(build))
+		fmt.Printf("crank\n-----\n%s\n", reply.Info)
 
 		return
 	}

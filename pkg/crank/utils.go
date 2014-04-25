@@ -76,3 +76,17 @@ func (b ByteCount) String() string {
 	}
 	return fmt.Sprintf("%0.2f %s", num, byteExp[exp])
 }
+
+type Info struct {
+	NumGoroutine int
+	Version      string
+	Build        string
+}
+
+func (info *Info) String() string {
+	return fmt.Sprintf("goroutines: %d\nversion: %s\nbuild: %s", info.NumGoroutine, info.Version, info.Build)
+}
+
+func GetInfo(build string) *Info {
+	return &Info{runtime.NumGoroutine(), VERSION, build}
+}
