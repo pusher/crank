@@ -1,7 +1,15 @@
 GOFLAGS=
 GOREV=-ldflags "-X main.build \"SHA: $(shell git rev-parse HEAD) (Built $(shell date) with $(shell go version))\""
+PREFIX=/usr/local
 
 all: fmt crank crankctl
+
+install: crank crankctl
+	install -d $(PREFIX)/bin
+	install -d $(PREFIX)/share/man/man1
+	install crank $(PREFIX)/bin/crank
+	install crankctl $(PREFIX)/bin/crankctl
+	cp -R man/*.1 $(PREFIX)/share/man/man1
 
 fmt:
 	go fmt ./...
@@ -15,4 +23,4 @@ crank: cmd/crank/*.go pkg/**/*.go
 crankctl: cmd/crankctl/*.go pkg/**/*.go
 	go build $(GOREV) $(GOFLAGS) -o $@ ./cmd/$@
 
-.PHONY: all fmt clean
+.PHONY: all fmt clean install
