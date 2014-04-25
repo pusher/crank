@@ -57,7 +57,7 @@ func main() {
 	// Make sure the path is writeable
 	f, err := os.OpenFile(conf, os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
-		log.Fatal("Could not open config file", conf, err)
+		log.Fatal("Config file not writeable: ", err)
 	}
 	f.Close()
 
