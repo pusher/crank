@@ -9,7 +9,7 @@ GEM
   specs:
     binman (3.3.2)
       opener (>= 0.1.0, < 1)
-    md2man (2.0.3)
+    md2man (2.0.4)
       binman (~> 3.0)
       redcarpet (~> 3.0)
     opener (0.1.0)

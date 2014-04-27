@@ -23,22 +23,22 @@ than crank provides. See the "PROCESS SIDE" section for more details.
 .PP
 Note that valid addr, conf and sock values are necessary for crank to run.
 .TP
-\fB\fC-addr\fR \fInet\-uri\fP
+\fB\fC\-addr\fR \fInet\-uri\fP
 A port or path on which to bind. This socket is not used directly by crank
 but passed onto the child process using the systemd LISTEN\fIFDS convention.
 Note that unlike systemd we don't pass the LISTEN\fPPID environment variable
 (due to a limitation in the go fork/exec model)
 .TP
-\fB\fC-conf\fR \fIconfig\-file\fP
+\fB\fC\-conf\fR \fIconfig\-file\fP
 A path where to store the last successful run command. This path needs to be
 writeable by crank and should probably be something like
 /var/run/crank/something.conf
 .TP
-\fB\fC-name\fR \fIprocess\-name\fP
+\fB\fC\-name\fR \fIprocess\-name\fP
 If passed, it sets the \-conf and \-sock arguments to
 a \fB\fC/var/run/crank/$name.$type\fR default (unless those are also passed).
 .TP
-\fB\fC-sock\fR \fInet\-uri\fP
+\fB\fC\-sock\fR \fInet\-uri\fP
 A port or path on which to bind. This socket exposes an rcp interface which
 is consumed by the \fB\fCcrankctl\fR command\-line.
 .PP
