@@ -15,8 +15,8 @@ type CommandSetup func(*flag.FlagSet) Command
 var (
 	commands map[string]CommandSetup
 	flags    *flag.FlagSet
-	name     string
-	sock     string
+	ctl      string = os.Getenv("CRANK_CTL")
+	name     string = os.Getenv("CRANK_NAME")
 	version  bool
 
 	build string
@@ -43,8 +43,8 @@ func init() {
 }
 
 func defaultFlags(flagSet *flag.FlagSet) {
-	flagSet.StringVar(&sock, "sock", sock, "path to control socket")
-	flagSet.StringVar(&name, "name", name, "crank process name. Used to infer -sock if specified.")
+	flagSet.StringVar(&ctl, "ctl", ctl, "path or address of the control socket")
+	flagSet.StringVar(&name, "name", name, "crank process name. Used to infer -ctl if specified.")
 }
 
 func usageError(reason string, args ...interface{}) {
@@ -90,8 +90,8 @@ func main() {
 		usageError("%s", err)
 	}
 
-	sock = crank.DefaultSock(sock, name)
-	conn, err := netutil.DialURI(sock)
+	ctl = crank.DefaultCtl(ctl, name)
+	conn, err := netutil.DialURI(ctl)
 	if err != nil {
 		fail("couldn't connect: %s", err)
 	}

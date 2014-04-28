@@ -28,12 +28,12 @@ func DefaultConf(conf string, name string) string {
 	return ""
 }
 
-func DefaultSock(sock string, name string) string {
-	if sock != "" {
-		return sock
+func DefaultCtl(ctl string, name string) string {
+	if ctl != "" {
+		return ctl
 	}
 	if name != "" {
-		return path.Join(VAR_PREFIX, name+".sock")
+		return path.Join(VAR_PREFIX, name+".ctl")
 	}
 	return ""
 }

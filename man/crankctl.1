@@ -7,17 +7,17 @@ crankctl \- crank control client
 \fB\fCcrankctl\fR \fB\fC<command>\fR [opts]
 .SH DESCRIPTION
 .PP
-\fB\fCcrankctl\fR allows to send commands to \fB\fCcrank\fR trough it's control socket.
+\fB\fCcrankctl\fR allows to send commands to \fB\fCcrank\fR trough it's control port.
 .SH OPTIONS
 .PP
 Global options:
 .TP
 \fB\fC\-name\fR \fIprocess\-name\fP
-If passed, it sets the \-sock arguments to
-a \fB\fC/var/run/crank/$name.sock\fR default.
+If passed, it sets the \-ctl arguments to
+a \fB\fC/var/run/crank/$name.ctl\fR default.
 .TP
-\fB\fC\-sock\fR \fInet\-uri\fP
-A path or address on which to connect. This should point to an existing unix
+\fB\fC\-ctl\fR \fInet\-uri\fP
+Path or address of the control port. This should point to an existing unix
 socket controlled by crank.
 .SH COMMANDS
 .RS
@@ -96,7 +96,7 @@ Selects a specific PID from the exisiting set. This flag is a AND filter
 unlike the other ones.
 .SH ENVIRONMENT
 .TP
-\fB\fCCRANK_NAME\fR, \fB\fCCRANK_SOCK\fR
+\fB\fCCRANK_NAME\fR, \fB\fCCRANK_CTL\fR
 If non\-null it defines the default argument of their corresponding flag.
 .SH SEE ALSO
 .PP

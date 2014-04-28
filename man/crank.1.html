@@ -14,14 +14,14 @@ reconnect somewhere else. We also want to load the new version and wait until
 it tells us it&#39;s ready and thus proove it&#39;s working before shutting down the
 old process.</p><p>Because <code>crank</code> exits when all the child processes are gone, you should run it
 under a system-level supervisor like upstart or systemd that handles restarts.</p><p>Processes run under crank needs to be adapted to benefit from all the features
-than crank provides. See the &quot;PROCESS SIDE&quot; section for more details.</p><h2 id="OPTIONS">OPTIONS</h2><p>Note that valid addr, conf and sock values are necessary for crank to run.</p><dl><dt><code>-addr</code> <em>net-uri</em></dt><dd>A port or path on which to bind. This socket is not used directly by crank
+than crank provides. See the &quot;PROCESS SIDE&quot; section for more details.</p><h2 id="OPTIONS">OPTIONS</h2><p>Note that valid addr, conf and sock values are necessary for crank to run.</p><dl><dt><code>-bind</code> <em>net-uri</em></dt><dd>A port or path on which to bind. This socket is not used directly by crank
 but passed onto the child process using the systemd LISTEN<em>FDS convention.
 Note that unlike systemd we don&#39;t pass the LISTEN</em>PID environment variable
 (due to a limitation in the go fork/exec model)</dd></dl><dl><dt><code>-conf</code> <em>config-file</em></dt><dd>A path where to store the last successful run command. This path needs to be
 writeable by crank and should probably be something like
-/var/run/crank/something.conf</dd></dl><dl><dt><code>-name</code> <em>process-name</em></dt><dd>If passed, it sets the -conf and -sock arguments to
-a <code>/var/run/crank/$name.$type</code> default (unless those are also passed).</dd></dl><dl><dt><code>-sock</code> <em>net-uri</em></dt><dd>A port or path on which to bind. This socket exposes an rcp interface which
-is consumed by the <code>crankctl</code> command-line.</dd></dl><p><em>net-uri</em> format: an address can be of the following forms:</p>
+/var/run/crank/something.conf</dd></dl><dl><dt><code>-ctl</code> <em>net-uri</em></dt><dd>Path or address of the control socket. This socket exposes an rcp interface
+which is consumed by the <code>crankctl</code> command-line.</dd></dl><dl><dt><code>-name</code> <em>process-name</em></dt><dd>If passed, it sets the -conf and -ctl arguments to
+a <code>/var/run/crank/$name.$type</code> default (unless those are also passed).</dd></dl><p><em>net-uri</em> format: an address can be of the following forms:</p>
 <ul>
 <li><code>&lt;path&gt;</code> (no : character allowed)</li>
 <li><code>[host]:&lt;port&gt;</code></li>
@@ -34,7 +34,7 @@ fd:3 as the accepting socket instead of binding it&#39;s own. Note that we don&#
 use the systemd LISTEN</em>PID because of go&#39;s fork/exec limitation.</p><p>If the process sees a NOTIFY_FD environment variable it is supposed to send
 a &quot;READY=1&quot; datagram on it once it&#39;s ready to accept new client connection.</p><p>If the process receives a SIGTERM signal it is supposed to stop accepting new
 connections and stop gracefully or not the existing ones. Crank will
-forcefully terminate the process after a configured period.</p><h2 id="ENVIRONMENT">ENVIRONMENT</h2><dl><dt><code>CRANK_ADDR</code>, <code>CRANK_CONF</code>, <code>CRANK_NAME</code>, <code>CRANK_SOCK</code></dt><dd>If non-null it defines the default argument of teir corresponding flag.</dd></dl><h2 id="FILES">FILES</h2><p>The config file contains the serialization of config of the last
+forcefully terminate the process after a configured period.</p><h2 id="ENVIRONMENT">ENVIRONMENT</h2><dl><dt><code>CRANK_BIND</code>, <code>CRANK_CONF</code>, <code>CRANK_CTL</code>, <code>CRANK_NAME</code></dt><dd>If non-null it defines the default argument of teir corresponding flag.</dd></dl><h2 id="FILES">FILES</h2><p>The config file contains the serialization of config of the last
 successfully-started process. In that sense it should not belong in /etc.</p><h2 id="BUGS">BUGS</h2><p>The command name should have been chosen more carefully to reflect its
 purpose.</p><h2 id="AUTHOR">AUTHOR</h2><p>Martyn Loughran <a href="mailto:martyn@mloughran.com">martyn@mloughran.com</a>
 zimbatm <a href="mailto:zimbatm@zimbatm.com">zimbatm@zimbatm.com</a>

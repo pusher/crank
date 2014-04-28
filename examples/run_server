@@ -1,2 +1,2 @@
 #!/bin/sh
-exec ../crank -addr :8080 -conf server.conf -sock server.sock
+exec ../crank -bind :8080 -conf server.conf -ctl server.ctl

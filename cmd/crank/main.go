@@ -11,20 +11,20 @@ import (
 )
 
 var (
-	addr    string
+	bind    string
 	conf    string
+	ctl     string
 	name    string
-	sock    string
 	version bool
 
 	build string
 )
 
 func init() {
-	flag.StringVar(&addr, "addr", os.Getenv("CRANK_ADDR"), "external address to bind (e.g. 'tcp://:80')")
+	flag.StringVar(&bind, "bind", os.Getenv("CRANK_BIND"), "external address to bind (e.g. 'tcp://:80')")
 	flag.StringVar(&conf, "conf", os.Getenv("CRANK_CONF"), "path to the process config file")
-	flag.StringVar(&name, "name", os.Getenv("CRANK_NAME"), "crank process name. Used to infer -conf and -sock if specified.")
-	flag.StringVar(&sock, "sock", os.Getenv("CRANK_SOCK"), "rpc socket address")
+	flag.StringVar(&ctl, "ctl", os.Getenv("CRANK_CTL"), "rpc socket address")
+	flag.StringVar(&name, "name", os.Getenv("CRANK_NAME"), "crank process name. Used to infer -conf and -ctl if specified.")
 	flag.BoolVar(&version, "version", false, "show version")
 }
 
@@ -37,21 +37,21 @@ func main() {
 	}
 
 	conf = crank.DefaultConf(conf, name)
-	sock = crank.DefaultSock(sock, name)
+	ctl = crank.DefaultCtl(ctl, name)
 
-	if addr == "" {
-		log.Fatal("Missing required flag: addr")
+	if bind == "" {
+		log.Fatal("Missing required flag: bind")
+	}
+	if ctl == "" {
+		log.Fatal("Missing required flag: ctl or name")
 	}
 	if conf == "" {
 		log.Fatal("Missing required flag: conf or name")
 	}
-	if sock == "" {
-		log.Fatal("Missing required flag: sock or name")
-	}
 
-	socket, err := netutil.BindURI(addr)
+	socket, err := netutil.BindURI(bind)
 	if err != nil {
-		log.Fatal("addr socket failed: ", err)
+		log.Fatal("bind socket failed: ", err)
 	}
 
 	// Make sure the path is writeable
@@ -61,9 +61,9 @@ func main() {
 	}
 	f.Close()
 
-	rpcFile, err := netutil.BindURI(sock)
+	rpcFile, err := netutil.BindURI(ctl)
 	if err != nil {
-		log.Fatal("run socket failed: ", err)
+		log.Fatal("ctl socket failed: ", err)
 	}
 	rpcListener, err := net.FileListener(rpcFile)
 	if err != nil {

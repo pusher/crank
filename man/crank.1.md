@@ -32,7 +32,7 @@ OPTIONS
 
 Note that valid addr, conf and sock values are necessary for crank to run.
 
-`-addr` *net-uri*
+`-bind` *net-uri*
   A port or path on which to bind. This socket is not used directly by crank
   but passed onto the child process using the systemd LISTEN_FDS convention.
   Note that unlike systemd we don't pass the LISTEN_PID environment variable
@@ -43,13 +43,13 @@ Note that valid addr, conf and sock values are necessary for crank to run.
   writeable by crank and should probably be something like
   /var/run/crank/something.conf
 
-`-name` *process-name*
-  If passed, it sets the -conf and -sock arguments to
-  a `/var/run/crank/$name.$type` default (unless those are also passed).
+`-ctl` *net-uri*
+  Path or address of the control socket. This socket exposes an rcp interface
+  which is consumed by the `crankctl` command-line.
 
-`-sock` *net-uri*
-  A port or path on which to bind. This socket exposes an rcp interface which
-  is consumed by the `crankctl` command-line.
+`-name` *process-name*
+  If passed, it sets the -conf and -ctl arguments to
+  a `/var/run/crank/$name.$type` default (unless those are also passed).
 
 *net-uri* format: an address can be of the following forms:
 
@@ -78,7 +78,7 @@ forcefully terminate the process after a configured period.
 ENVIRONMENT
 -----------
 
-`CRANK_ADDR`, `CRANK_CONF`, `CRANK_NAME`, `CRANK_SOCK`
+`CRANK_BIND`, `CRANK_CONF`, `CRANK_CTL`, `CRANK_NAME`
   If non-null it defines the default argument of teir corresponding flag.
 
 FILES

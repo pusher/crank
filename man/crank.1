@@ -23,7 +23,7 @@ than crank provides. See the "PROCESS SIDE" section for more details.
 .PP
 Note that valid addr, conf and sock values are necessary for crank to run.
 .TP
-\fB\fC\-addr\fR \fInet\-uri\fP
+\fB\fC\-bind\fR \fInet\-uri\fP
 A port or path on which to bind. This socket is not used directly by crank
 but passed onto the child process using the systemd LISTEN\fIFDS convention.
 Note that unlike systemd we don't pass the LISTEN\fPPID environment variable
@@ -34,13 +34,13 @@ A path where to store the last successful run command. This path needs to be
 writeable by crank and should probably be something like
 /var/run/crank/something.conf
 .TP
-\fB\fC\-name\fR \fIprocess\-name\fP
-If passed, it sets the \-conf and \-sock arguments to
-a \fB\fC/var/run/crank/$name.$type\fR default (unless those are also passed).
+\fB\fC\-ctl\fR \fInet\-uri\fP
+Path or address of the control socket. This socket exposes an rcp interface
+which is consumed by the \fB\fCcrankctl\fR command\-line.
 .TP
-\fB\fC\-sock\fR \fInet\-uri\fP
-A port or path on which to bind. This socket exposes an rcp interface which
-is consumed by the \fB\fCcrankctl\fR command\-line.
+\fB\fC\-name\fR \fIprocess\-name\fP
+If passed, it sets the \-conf and \-ctl arguments to
+a \fB\fC/var/run/crank/$name.$type\fR default (unless those are also passed).
 .PP
 \fInet\-uri\fP format: an address can be of the following forms:
 .RS
@@ -71,7 +71,7 @@ connections and stop gracefully or not the existing ones. Crank will
 forcefully terminate the process after a configured period.
 .SH ENVIRONMENT
 .TP
-\fB\fCCRANK_ADDR\fR, \fB\fCCRANK_CONF\fR, \fB\fCCRANK_NAME\fR, \fB\fCCRANK_SOCK\fR
+\fB\fCCRANK_BIND\fR, \fB\fCCRANK_CONF\fR, \fB\fCCRANK_CTL\fR, \fB\fCCRANK_NAME\fR
 If non\-null it defines the default argument of teir corresponding flag.
 .SH FILES
 .PP

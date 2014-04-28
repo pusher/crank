@@ -19,9 +19,9 @@ if [ "$prefix" = "-h" ] || [ "$prefix" = "--help" ]; then
   exit
 fi
 
-for sock in $(ls /var/run/crank/$prefix-*.sock | sort) ; do
-  name=`basename $sock | sed 's/.sock$//'`
+for ctl in $(ls /var/run/crank/$prefix-*.ctl | sort) ; do
+  name=`basename $sock | sed 's/.ctl$//'`
   echo "For $name"
-  crankctl -sock $sock "$@"
+  crankctl -ctl $ctl "$@"
 done
 

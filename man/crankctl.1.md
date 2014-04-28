@@ -14,7 +14,7 @@ SYNOPSIS
 DESCRIPTION
 -----------
 
-`crankctl` allows to send commands to `crank` trough it's control socket.
+`crankctl` allows to send commands to `crank` trough it's control port.
 
 OPTIONS
 -------
@@ -22,11 +22,11 @@ OPTIONS
 Global options:
 
 `-name` *process-name*
-  If passed, it sets the -sock arguments to
-  a `/var/run/crank/$name.sock` default.
+  If passed, it sets the -ctl arguments to
+  a `/var/run/crank/$name.ctl` default.
 
-`-sock` *net-uri*
-  A path or address on which to connect. This should point to an existing unix
+`-ctl` *net-uri*
+  Path or address of the control port. This should point to an existing unix
   socket controlled by crank.
 
 COMMANDS
@@ -101,7 +101,7 @@ are signaled.
 ENVIRONMENT
 -----------
 
-`CRANK_NAME`, `CRANK_SOCK`
+`CRANK_NAME`, `CRANK_CTL`
   If non-null it defines the default argument of their corresponding flag.
 
 SEE ALSO
