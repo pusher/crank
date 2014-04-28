@@ -1,0 +1,26 @@
+.TH CRANKX 1 "APRIL 2014" Crank "User Manuals"
+.SH NAME
+.PP
+crankx \- crank multi\-control client
+.SH SYNOPSIS
+.PP
+\fB\fCcrankx\fR \fB\fC<prefix>\fR [crankctl opts]
+.SH DESCRIPTION
+.PP
+\fB\fCcrankx\fR multiplexes \fB\fCcrankctl\fR calls over a prefix. It's useful only for
+crank processes who have their sock files under /var/run/crank/$prefix\-*.sock
+.PP
+Example:
+.PP
+.RS
+.nf
+crank \-name api\-8080 \-addr :8080 &
+crank \-name api\-8081 \-addr :8081 &
+# Starts api.rb on both crank processes in turn:
+crankx api run api.rb \-wait
+.fi
+.RE
+.SH SEE ALSO
+.PP
+.BR crank (1), 
+.BR crankctl (1)

@@ -1,0 +1,27 @@
+#!/bin/sh
+set -u
+set -e
+
+usage() {
+  echo "Runs a command across multiple crankctl"
+  echo
+  echo "Usage: crankall <prefix> [crank opts]"
+}
+
+prefix=$1
+if [ -z "$prefix" ]; then
+  usage
+  exit 1
+fi
+
+if [ "$prefix" = "-h" ] || [ "$prefix" = "--help" ]; then
+  usage
+  exit
+fi
+
+for sock in $(ls /var/run/crank/$prefix-*.sock | sort) ; do
+  name=`basename $sock | sed 's/.sock$//'`
+  echo "For $name"
+  crankctl -sock $sock "$@"
+done
+

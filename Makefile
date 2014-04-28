@@ -9,6 +9,7 @@ install: crank crankctl
 	install -d $(PREFIX)/share/man/man1
 	install crank $(PREFIX)/bin/crank
 	install crankctl $(PREFIX)/bin/crankctl
+	install crankx $(PREFIX)/bin/crankx
 	cp -R man/*.1 $(PREFIX)/share/man/man1
 
 fmt:

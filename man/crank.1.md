@@ -103,4 +103,4 @@ Paweł Ledwoń <pawel@pusher.com>
 SEE ALSO
 --------
 
-crankctl(1), sd-daemon(3)
+crankctl(1), crankx(1), sd-daemon(3)
