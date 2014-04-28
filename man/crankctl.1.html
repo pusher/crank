@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <meta name="generator" content="md2man 2.0.3 https://github.com/sunaku/md2man" />
+  <meta name="generator" content="md2man 2.0.4 https://github.com/sunaku/md2man" />
   <title>crankctl(1) &mdash; crank control client</title>
   <link rel="stylesheet" href="style.css"/>
   <!--[if lt IE 9]><script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
@@ -14,7 +14,7 @@ socket controlled by crank.</dd></dl><h2 id="COMMANDS">COMMANDS</h2>
 <li><code>crankctl run [opts] -- [command ...args]</code></li>
 </ul>
 <p>Used to start a new process. Once ready, crank terminates the old process. If
-the startup fails, crank leaves the old process running and untouched.</p><dl><dt><code>-start SEC</code></dt><dd>Sets the start timeout of the process in seconds.</dd></dl><dl><dt><code>-stop SEC</code></dt><dd>Sets the stop timeout of the process in seconds.</dd></dl><dl><dt><code>-wait</code></dt><dd>Waits for either the process to be ready or to fail. If the new process has
+the startup fails, crank leaves the old process running and untouched.</p><dl><dt><code>-cwd PATH</code></dt><dd>Directory name to run the command under.</dd></dl><dl><dt><code>-start SEC</code></dt><dd>Sets the start timeout of the process in seconds.</dd></dl><dl><dt><code>-stop SEC</code></dt><dd>Sets the stop timeout of the process in seconds.</dd></dl><dl><dt><code>-wait</code></dt><dd>Waits for either the process to be ready or to fail. If the new process has
 failed, crankctl exits with an exit status of 1.</dd></dl><dl><dt><code>command ...args</code></dt><dd>Gives the command and args to run. If unspecified, the previous successful
 command is used.</dd></dl>
 <ul>

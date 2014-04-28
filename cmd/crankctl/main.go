@@ -107,6 +107,7 @@ func Run(flag *flag.FlagSet) Command {
 	flag.IntVar(&query.StopTimeout, "stop", -1, "Stop timeout in seconds")
 	flag.IntVar(&query.StartTimeout, "start", -1, "Start timeout in seconds")
 	flag.BoolVar(&query.Wait, "wait", false, "Wait for a result")
+	flag.StringVar(&query.Cwd, "cwd", "", "Working directory")
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage of %s run [opts] -- [command ...args]:\n", os.Args[0])

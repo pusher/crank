@@ -101,6 +101,10 @@ func (self *Manager) Run() {
 					config.Command = query.Command
 				}
 
+				if config.Cwd != "" {
+					config.Cwd = query.Cwd
+				}
+
 				if query.StartTimeout > 0 {
 					config.StartTimeout = time.Duration(query.StartTimeout) * time.Second
 				}

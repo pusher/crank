@@ -35,6 +35,7 @@ type processFilter func(*Process) *Process
 
 type StartQuery struct {
 	Command      []string
+	Cwd          string
 	StartTimeout int
 	StopTimeout  int
 	Wait         bool

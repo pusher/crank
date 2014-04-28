@@ -9,12 +9,14 @@ import (
 
 type ProcessConfig struct {
 	Command      []string      `json:"command"`
+	Cwd          string        `json:"cwd"`
 	StartTimeout time.Duration `json:"start_timeout"`
 	StopTimeout  time.Duration `json:"stop_timeout"`
 }
 
 var DefaultConfig = &ProcessConfig{
 	Command:      []string{},
+	Cwd:          "",
 	StartTimeout: time.Second * 30,
 	StopTimeout:  time.Second * 30,
 }

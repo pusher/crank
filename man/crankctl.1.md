@@ -37,6 +37,9 @@ COMMANDS
 Used to start a new process. Once ready, crank terminates the old process. If
 the startup fails, crank leaves the old process running and untouched.
 
+`-cwd PATH`
+  Directory name to run the command under.
+
 `-start SEC`
   Sets the start timeout of the process in seconds.
 

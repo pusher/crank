@@ -48,7 +48,7 @@ func startProcess(id int, config *ProcessConfig, bindSocket *os.File, events cha
 	env = append(env, "NOTIFY_FD=4")
 
 	procAttr := os.ProcAttr{
-		//Dir: dir,
+		Dir: config.Cwd,
 		Env: env,
 		Files: []*os.File{
 			stdin,
