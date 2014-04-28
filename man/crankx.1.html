@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="md2man 2.0.4 https://github.com/sunaku/md2man" />
+  <title>crankx(1) &mdash; crank multi-control client</title>
+  <link rel="stylesheet" href="style.css"/>
+  <!--[if lt IE 9]><script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
+</head>
+<body><div class="navbar"><div class="navbar-inner"><span class="brand"><a href="index.html#man">man</a>/crankx.1</span></div></div><div class="container-fluid"><h1 id="CRANKX-1-quot-APRIL-2014-quot-Crank-quot-User-Manuals-quot">CRANKX 1 &quot;APRIL 2014&quot; Crank &quot;User Manuals&quot;</h1><h2 id="NAME">NAME</h2><p>crankx - crank multi-control client</p><h2 id="SYNOPSIS">SYNOPSIS</h2><p><code>crankx</code> <code>&lt;prefix&gt;</code> [crankctl opts]</p><h2 id="DESCRIPTION">DESCRIPTION</h2><p><code>crankx</code> multiplexes <code>crankctl</code> calls over a prefix. It&#39;s useful only for
+crank processes who have their sock files under /var/run/crank/$prefix-*.sock</p><p>Example:</p>
+<pre><code>crank -name api-8080 -addr :8080 &amp;
+crank -name api-8081 -addr :8081 &amp;
+# Starts api.rb on both crank processes in turn:
+crankx api run api.rb -wait
+</code></pre>
+<h2 id="SEE-ALSO">SEE ALSO</h2><p><a class="md2man-xref">crank(1)</a>, <a class="md2man-xref">crankctl(1)</a></p></div></body>
+</html>

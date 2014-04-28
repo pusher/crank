@@ -107,4 +107,4 @@ ENVIRONMENT
 SEE ALSO
 --------
 
-crank(1)
+crank(1), crankmulti(1)
