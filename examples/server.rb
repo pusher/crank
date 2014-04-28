@@ -2,6 +2,8 @@
 
 $stdout.sync = true
 
+p [:running, $0, *ARGV]
+
 require 'socket'
 
 require 'set'

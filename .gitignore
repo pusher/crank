@@ -1,3 +1,4 @@
 .bundle
 /crank
 /crankctl
+/examples/server.sock
