@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"syscall"
+	"time"
 )
 
 func startProcess(id int, config *ProcessConfig, bindSocket *os.File, events chan<- Event) (p *Process, err error) {
@@ -32,7 +33,7 @@ func startProcess(id int, config *ProcessConfig, bindSocket *os.File, events cha
 
 	prefix := func() string {
 		<-lock // once the channel is closed this will never block
-		return p.String()
+		return fmt.Sprintf("%s %s ", time.Now().Format(time.StampMilli), p.String())
 	}
 	if logFile, err = startProcessLogger(os.Stdout, prefix); err != nil {
 		return
