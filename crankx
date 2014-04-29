@@ -9,6 +9,7 @@ usage() {
 }
 
 prefix=$1
+shift
 if [ -z "$prefix" ]; then
   usage
   exit 1
@@ -23,8 +24,8 @@ if ! echo "$prefix" | grep -q '^[/.]' ; then
   prefix="/var/run/crank/$prefix"
 fi
 
-for ctl in $(ls $prefix-*.ctl | sort) ; do
-  name=`basename $sock | sed 's/.ctl$//'`
+for ctl in $(ls $prefix*.ctl | sort) ; do
+  name=`basename $ctl | sed 's/.ctl$//'`
   echo "For $name"
   crankctl -ctl $ctl "$@"
 done
