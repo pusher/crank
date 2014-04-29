@@ -162,8 +162,7 @@ func (self *Manager) Run() {
 
 				reply.PS = make([]*ProcessInfo, 0, ps.len())
 				for p, state := range ps {
-					usage, err := p.Usage()
-					reply.PS = append(reply.PS, &ProcessInfo{p.Pid(), state.String(), p.config.Command, usage, err})
+					reply.PS = append(reply.PS, &ProcessInfo{p.Pid(), p.id, state.String(), p.config.Command, p.config.Cwd})
 				}
 
 				action.done <- nil

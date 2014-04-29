@@ -3,8 +3,6 @@ package crank
 import (
 	"fmt"
 	"net/rpc"
-	"syscall"
-	"time"
 )
 
 type API struct {
@@ -77,23 +75,14 @@ type PsReply struct {
 
 type ProcessInfo struct {
 	Pid     int
+	Cid     int
 	State   string
 	Command []string
-	Usage   *syscall.Rusage
-	Err     error
+	Cwd     string
 }
 
 func (pi *ProcessInfo) String() string {
-	since := func(tv syscall.Timeval) time.Duration {
-		return time.Duration(tv.Nano())
-	}
-
-	if pi.Err != nil {
-		return fmt.Sprintf("%d %s %v %v", pi.Pid, pi.State, pi.Command, pi.Err)
-	} else {
-		usage := pi.Usage
-		return fmt.Sprintf("%d %s %v %v %v %v", pi.Pid, pi.State, pi.Command, since(usage.Utime), since(usage.Stime), ByteCount(usage.Maxrss))
-	}
+	return fmt.Sprintf("%d %d %s %#v %v", pi.Pid, pi.Cid, pi.State, pi.Cwd, pi.Command)
 }
 
 func (self *API) Ps(query *PsQuery, reply *PsReply) error {
