@@ -7,8 +7,11 @@ crankx \- crank multi\-control client
 \fB\fCcrankx\fR \fB\fC<prefix>\fR [crankctl opts]
 .SH DESCRIPTION
 .PP
-\fB\fCcrankx\fR multiplexes \fB\fCcrankctl\fR calls over a prefix. It's useful only for
-crank processes who have their ctl files under /var/run/crank/$prefix\-*.ctl
+\fB\fCcrankx\fR multiplexes \fB\fCcrankctl\fR calls over a prefix.
+.PP
+The prefix is prepended with \fB\fC/var/run/crank/\fR unless it start with a \fB\fC\&.\fR or \fB\fC/\fR
+.PP
+\fB\fCcrankx\fR will then invoke \fB\fCcrankctl\fR for each \fB\fC$prefix\-*.ctl\fR file.
 .PP
 Example:
 .PP

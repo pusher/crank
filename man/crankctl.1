@@ -13,8 +13,10 @@ crankctl \- crank control client
 Global options:
 .TP
 \fB\fC\-name\fR \fIprocess\-name\fP
-If passed, it sets the \-ctl arguments to
-a \fB\fC/var/run/crank/$name.ctl\fR default.
+If passed, it sets the \fB\fC\-ctl\fR arguments to a \fB\fC$prefix/$name.ctl\fR default.
+.TP
+\fB\fC\-prefix\fR \fIpath\fP
+Sets the crank runtime directory. Defaults to \fB\fC/var/run/crank\fR\&.
 .TP
 \fB\fC\-ctl\fR \fInet\-uri\fP
 Path or address of the control port. This should point to an existing unix

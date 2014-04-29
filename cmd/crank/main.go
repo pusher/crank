@@ -14,6 +14,7 @@ var (
 	bind    string
 	conf    string
 	ctl     string
+	prefix  string
 	name    string
 	version bool
 
@@ -24,6 +25,7 @@ func init() {
 	flag.StringVar(&bind, "bind", os.Getenv("CRANK_BIND"), "external address to bind (e.g. 'tcp://:80')")
 	flag.StringVar(&conf, "conf", os.Getenv("CRANK_CONF"), "path to the process config file")
 	flag.StringVar(&ctl, "ctl", os.Getenv("CRANK_CTL"), "rpc socket address")
+	flag.StringVar(&prefix, "prefix", crank.Prefix(os.Getenv("CRANK_PREFIX")), "crank runtime directory")
 	flag.StringVar(&name, "name", os.Getenv("CRANK_NAME"), "crank process name. Used to infer -conf and -ctl if specified.")
 	flag.BoolVar(&version, "version", false, "show version")
 }
@@ -36,8 +38,8 @@ func main() {
 		return
 	}
 
-	conf = crank.DefaultConf(conf, name)
-	ctl = crank.DefaultCtl(ctl, name)
+	conf = crank.DefaultConf(conf, prefix, name)
+	ctl = crank.DefaultCtl(ctl, prefix, name)
 
 	if bind == "" {
 		log.Fatal("Missing required flag: bind")

@@ -14,8 +14,11 @@ SYNOPSIS
 DESCRIPTION
 -----------
 
-`crankx` multiplexes `crankctl` calls over a prefix. It's useful only for
-crank processes who have their ctl files under /var/run/crank/$prefix-*.ctl
+`crankx` multiplexes `crankctl` calls over a prefix.
+
+The prefix is prepended with `/var/run/crank/` unless it start with a `.` or `/`
+
+`crankx` will then invoke `crankctl` for each `$prefix-*.ctl` file.
 
 Example:
 

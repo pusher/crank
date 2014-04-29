@@ -47,9 +47,12 @@ Note that valid addr, conf and sock values are necessary for crank to run.
   Path or address of the control socket. This socket exposes an rcp interface
   which is consumed by the `crankctl` command-line.
 
+`-prefix` *path*
+  Sets the crank runtime directory. Defaults to `/var/run/crank`.
+
 `-name` *process-name*
-  If passed, it sets the -conf and -ctl arguments to
-  a `/var/run/crank/$name.$type` default (unless those are also passed).
+  If passed, it sets the `-conf` and `-ctl` arguments to
+  a `$prefix/$name.$type` default (unless those are also passed).
 
 *net-uri* format: an address can be of the following forms:
 

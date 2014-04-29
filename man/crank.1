@@ -38,9 +38,12 @@ writeable by crank and should probably be something like
 Path or address of the control socket. This socket exposes an rcp interface
 which is consumed by the \fB\fCcrankctl\fR command\-line.
 .TP
+\fB\fC\-prefix\fR \fIpath\fP
+Sets the crank runtime directory. Defaults to \fB\fC/var/run/crank\fR\&.
+.TP
 \fB\fC\-name\fR \fIprocess\-name\fP
-If passed, it sets the \-conf and \-ctl arguments to
-a \fB\fC/var/run/crank/$name.$type\fR default (unless those are also passed).
+If passed, it sets the \fB\fC\-conf\fR and \fB\fC\-ctl\fR arguments to
+a \fB\fC$prefix/$name.$type\fR default (unless those are also passed).
 .PP
 \fInet\-uri\fP format: an address can be of the following forms:
 .RS

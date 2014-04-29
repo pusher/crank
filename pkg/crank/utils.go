@@ -16,24 +16,31 @@ func init() {
 	neverChan = make(chan time.Time)
 }
 
-const VAR_PREFIX = "/var/run/crank"
+const DEFAULT_PREFIX = "/var/run/crank"
 
-func DefaultConf(conf string, name string) string {
+func Prefix(prefix string) string {
+	if prefix != "" {
+		return prefix
+	}
+	return DEFAULT_PREFIX
+}
+
+func DefaultConf(conf, prefix, name string) string {
 	if conf != "" {
 		return conf
 	}
 	if name != "" {
-		return path.Join(VAR_PREFIX, name+".conf")
+		return path.Join(Prefix(prefix), name+".conf")
 	}
 	return ""
 }
 
-func DefaultCtl(ctl string, name string) string {
+func DefaultCtl(ctl, prefix, name string) string {
 	if ctl != "" {
 		return ctl
 	}
 	if name != "" {
-		return path.Join(VAR_PREFIX, name+".ctl")
+		return path.Join(Prefix(prefix), name+".ctl")
 	}
 	return ""
 }
