@@ -89,10 +89,10 @@ func (pi *ProcessInfo) String() string {
 	}
 
 	if pi.Err != nil {
-		return fmt.Sprintf("%d %s %v %v\n", pi.Pid, pi.State, pi.Command, pi.Err)
+		return fmt.Sprintf("%d %s %v %v", pi.Pid, pi.State, pi.Command, pi.Err)
 	} else {
 		usage := pi.Usage
-		return fmt.Sprintf("%d %s %v %v %v %v\n", pi.Pid, pi.State, pi.Command, since(usage.Utime), since(usage.Stime), ByteCount(usage.Maxrss))
+		return fmt.Sprintf("%d %s %v %v %v %v", pi.Pid, pi.State, pi.Command, since(usage.Utime), since(usage.Stime), ByteCount(usage.Maxrss))
 	}
 }
 
