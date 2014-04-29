@@ -4,6 +4,7 @@ import (
 	"../devnull"
 	"fmt"
 	"os"
+	"os/exec"
 	"syscall"
 )
 
@@ -60,7 +61,12 @@ func startProcess(id int, config *ProcessConfig, bindSocket *os.File, events cha
 	}
 
 	// Start process
-	if p.Process, err = os.StartProcess(config.Command[0], config.Command, &procAttr); err != nil {
+	command, err := exec.LookPath(config.Command[0])
+	if err != nil {
+		return nil, err
+	}
+
+	if p.Process, err = os.StartProcess(command, config.Command, &procAttr); err != nil {
 		return nil, err
 	}
 
