@@ -16,7 +16,7 @@ import (
 // Returns a file on which the process is supposed to write data, which then
 // translate into these events.
 func startProcessNotifier(ready chan<- bool) (w *os.File, err error) {
-	fds, err := syscall.Socketpair(syscall.AF_LOCAL, syscall.SOCK_STREAM, 0)
+	fds, err := syscall.Socketpair(syscall.AF_LOCAL, syscall.SOCK_DGRAM, 0)
 	if err != nil {
 		return
 	}
@@ -44,7 +44,7 @@ func runProcessNotifier(r *os.File, ready chan<- bool) {
 			return
 		}
 		if err != nil {
-			fail("Reading on pipe", err)
+			fail("Reading on notify socket", err)
 			return
 		}
 
