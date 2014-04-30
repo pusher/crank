@@ -77,8 +77,8 @@ type ProcessInfo struct {
 	Pid     int
 	Cid     int
 	State   string
-	Command []string
 	Cwd     string
+	Command []string
 }
 
 func (pi *ProcessInfo) String() string {

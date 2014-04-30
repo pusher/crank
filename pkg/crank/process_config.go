@@ -8,15 +8,15 @@ import (
 )
 
 type ProcessConfig struct {
-	Command      []string      `json:"command"`
 	Cwd          string        `json:"cwd"`
+	Command      []string      `json:"command"`
 	StartTimeout time.Duration `json:"start_timeout"`
 	StopTimeout  time.Duration `json:"stop_timeout"`
 }
 
 var DefaultConfig = &ProcessConfig{
-	Command:      []string{},
 	Cwd:          "",
+	Command:      []string{},
 	StartTimeout: time.Second * 30,
 	StopTimeout:  time.Second * 30,
 }
@@ -57,5 +57,5 @@ func (self *ProcessConfig) clone() *ProcessConfig {
 }
 
 func (self *ProcessConfig) String() string {
-	return fmt.Sprintf("command=%v start_timeout=%v stop_timeout=%v", self.Command, self.StartTimeout, self.StopTimeout)
+	return fmt.Sprintf("cwd=%s command=%v start_timeout=%v stop_timeout=%v", self.Cwd, self.Command, self.StartTimeout, self.StopTimeout)
 }
