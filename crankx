@@ -27,6 +27,6 @@ fi
 for ctl in $(ls $prefix*.ctl | sort) ; do
   name=`basename $ctl | sed 's/.ctl$//'`
   echo "For $name"
-  crankctl -ctl $ctl "$@"
+  $(dirname $0)/crankctl -ctl $ctl "$@"
 done
 
