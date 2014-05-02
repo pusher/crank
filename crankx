@@ -5,7 +5,7 @@ set -e
 usage() {
   echo "Runs a command across multiple crankctl"
   echo
-  echo "Usage: crankall <prefix> [crank opts]"
+  echo "Usage: crankx <prefix> [crank opts]"
 }
 
 prefix=$1
