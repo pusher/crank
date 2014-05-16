@@ -105,7 +105,7 @@ func (self *Manager) Run() {
 					config.Command = query.Command
 				}
 
-				if config.Cwd != "" {
+				if query.Cwd != "" {
 					config.Cwd = query.Cwd
 				}
 
