@@ -8,12 +8,12 @@ usage() {
   echo "Usage: crankx <prefix> [crank opts]"
 }
 
-prefix=$1
-shift
+prefix=${1:-}
 if [ -z "$prefix" ]; then
   usage
   exit 1
 fi
+shift
 
 if [ "$prefix" = "-h" ] || [ "$prefix" = "--help" ]; then
   usage
