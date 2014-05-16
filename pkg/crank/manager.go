@@ -72,6 +72,10 @@ func (self *Manager) Run() {
 				}
 				self.log("Shutting down")
 				self.shuttingDown = true
+
+				// Makes the socket unavailable as soon as possible
+				self.socket.Close()
+
 				self.childs.each(func(p *Process) {
 					self.stopProcess(p)
 				})
