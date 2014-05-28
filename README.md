@@ -1,6 +1,8 @@
 Crank - restart your servers, slowly
 ====================================
 
+[TODO: build badge here]()
+
 Because we're more modern than horses.
 
 Crank's main goal is to handle restarts for servers who handle long-lived TCP
