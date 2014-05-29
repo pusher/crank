@@ -1,17 +1,14 @@
 package crank
 
 import (
-	"bufio"
-	"fmt"
+	"bytes"
 	"io"
 	"os"
-	"time"
 )
 
-// FIXME: the logger will shutdown if a line is bigger than bufio.MaxScanTokenSize
-//        (64k at the moment)
+var EMPTY_BYTES = []byte{}
 
-func startProcessLogger(out io.Writer, tag func() string) (w *os.File, err error) {
+func startProcessLogger(out io.Writer, prefix func() string) (w *os.File, err error) {
 	var r *os.File
 
 	r, w, err = os.Pipe()
@@ -19,30 +16,77 @@ func startProcessLogger(out io.Writer, tag func() string) (w *os.File, err error
 		return
 	}
 
-	go runProcesssLogger(out, r, tag)
+	go runProcesssLogger(out, r, prefix)
 
 	return w, nil
 }
 
-func runProcesssLogger(out io.Writer, r *os.File, tag func() string) {
+func runProcesssLogger(out io.Writer, r *os.File, prefix func() string) {
 	defer r.Close()
 
-	var line string
+	_, err := io.Copy(out, NewLinePrefixer(r, prefix))
 
-	// Use scanner to read lines from the input
-	scanner := bufio.NewScanner(r)
-
-	for scanner.Scan() {
-		// e.g. Mar 18 10:08:13.839 (1)[69282] Logentry
-		line = fmt.Sprintln(
-			time.Now().Format(time.StampMilli),
-			tag(),
-			scanner.Text(),
-		)
-		out.Write([]byte(line))
-	}
-
-	if err := scanner.Err(); err != nil {
+	if err != nil {
 		fail(err)
 	}
+}
+
+type PrefixReader struct {
+	r          io.Reader
+	prefix     func() string
+	buf        []byte
+	needPrefix bool
+}
+
+func NewLinePrefixer(r io.Reader, prefix func() string) *PrefixReader {
+	return &PrefixReader{r, prefix, EMPTY_BYTES, true}
+}
+
+func (io *PrefixReader) Read(buf []byte) (n int, err error) {
+
+	if len(io.buf) == 0 { // Get more data
+		var nr, i int
+
+		// If len(buf) is fixed we make regular reads
+		buf2 := make([]byte, len(buf))
+		nr, err = io.r.Read(buf2)
+		if err != nil {
+			return
+		}
+
+		buf2 = buf2[:nr]
+
+		// Prefix and put buf2 into io.buf
+		for len(buf2) > 0 {
+			if io.needPrefix {
+				io.buf = append(io.buf, []byte(io.prefix())...)
+				io.needPrefix = false
+			}
+
+			i = bytes.IndexRune(buf2, '\n')
+			if i >= 0 {
+				io.buf = append(io.buf, buf2[:i+1]...)
+				buf2 = buf2[i+1:]
+				io.needPrefix = true
+			} else {
+				io.buf = append(io.buf, buf2...)
+				buf2 = EMPTY_BYTES
+			}
+		}
+	}
+
+	// Get io.buf data into buf
+	n = minInt(len(buf), len(io.buf))
+	for i, b := range io.buf[:n] {
+		buf[i] = b
+	}
+	io.buf = io.buf[n:]
+	return
+}
+
+func minInt(x, y int) int {
+	if x < y {
+		return x
+	}
+	return y
 }
