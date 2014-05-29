@@ -108,6 +108,7 @@ func Run(flag *flag.FlagSet) Command {
 	query := crank.StartQuery{}
 	flag.IntVar(&query.StopTimeout, "stop", -1, "Stop timeout in seconds")
 	flag.IntVar(&query.StartTimeout, "start", -1, "Start timeout in seconds")
+	flag.IntVar(&query.Pid, "pid", 0, "Only if the current pid matches")
 	flag.BoolVar(&query.Wait, "wait", false, "Wait for a result")
 	flag.StringVar(&query.Cwd, "cwd", "", "Working directory")
 

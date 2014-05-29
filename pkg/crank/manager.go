@@ -98,6 +98,12 @@ func (self *Manager) Run() {
 					action.done <- err
 					continue
 				}
+				if cur := self.childs.ready(); cur != nil && query.Pid > 0 && cur.Pid() != query.Pid {
+					err := fmt.Errorf("Ignore start, passed pid (%d) doesn't match the current pid (%d)", query.Pid, cur.Pid)
+					self.log(err.Error())
+					action.done <- err
+					continue
+				}
 
 				config := self.config.clone()
 
