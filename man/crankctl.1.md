@@ -52,6 +52,11 @@ the startup fails, crank leaves the old process running and untouched.
   Waits for either the process to be ready or to fail. If the new process has
   failed, crankctl exits with an exit status of 1.
 
+`-pid PID`
+  If passed crank will only spawn a new process if the current process matches
+  the pid. It's useful to avoid race conditions if multiple tools interact
+  with crank at the same time.
+
 `command ...args`
   Gives the command and args to run. If unspecified, the previous successful
   command is used.
