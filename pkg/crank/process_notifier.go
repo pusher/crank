@@ -40,7 +40,7 @@ func runProcessNotifier(r *os.File, ready chan<- bool) {
 
 	for {
 		n, err = r.Read(data)
-		if err == io.EOF {
+		if err == io.EOF || err == io.ErrClosedPipe {
 			return
 		}
 		if err != nil {

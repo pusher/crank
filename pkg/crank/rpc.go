@@ -37,6 +37,7 @@ type StartQuery struct {
 	StartTimeout int
 	StopTimeout  int
 	Wait         bool
+	Pid          int
 }
 
 type StartReply struct {

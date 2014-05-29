@@ -87,13 +87,19 @@ func (self *Manager) Run() {
 				//reply := action.reply -- not used
 
 				if self.shuttingDown {
-					err := fmt.Errorf("Ignore start, manager is shutting down")
+					err := fmt.Errorf("Manager is shutting down")
 					self.log(err.Error())
 					action.done <- err
 					continue
 				}
 				if self.childs.starting() != nil {
-					err := fmt.Errorf("Ignore start, new process is already being started")
+					err := fmt.Errorf("New process is already being started")
+					self.log(err.Error())
+					action.done <- err
+					continue
+				}
+				if cur := self.childs.ready(); cur != nil && query.Pid > 0 && cur.Pid() != query.Pid {
+					err := fmt.Errorf("Passed pid (%d) doesn't match the current pid (%d)", query.Pid, cur.Pid())
 					self.log(err.Error())
 					action.done <- err
 					continue
