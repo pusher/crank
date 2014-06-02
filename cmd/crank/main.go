@@ -71,6 +71,8 @@ func main() {
 	if err != nil {
 		log.Fatal("BUG(rpcListener) : ", err)
 	}
+	rpcFile.Close()
+	rpcListener = netutil.UnlinkListener(rpcListener)
 
 	manager := crank.NewManager(build, conf, socket)
 	go onSignal(manager.Reload, syscall.SIGHUP)
@@ -81,8 +83,7 @@ func main() {
 
 	manager.Run() // Blocking
 
-	// Shutdown
-	os.Remove(rpcFile.Name())
+	rpcListener.Close()
 
 	log.Println("Bye!")
 }
