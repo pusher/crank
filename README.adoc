@@ -15,6 +15,7 @@ You want to be able to restart them one by one, ideally with none loosing
 child connections.
 
 Cranks's specific goals are:
+
 * Be able to change the command-line between restart
 * Be able to start a new process, and only close the old one if it
   successfully started.
@@ -27,7 +28,7 @@ nice to have).
 How it works
 ------------
 
-Crank is designed to site between your process supervisor of choice and your
+Crank is designed to sit between your process supervisor of choice and your
 application.
 
 In the init script or by hand, run `crank -bind :8080 -name $service_name`.
@@ -53,8 +54,7 @@ Processes' responsability
 A process must bind on a passed file-descriptor if the LISTEN_FDS environment
 variable is given.
 
-A process must send a "READY=1" datagram to the NOTIFY_FD passed as an
-environment variable.
+A process must send a "READY=1" datagram to the NOTIFY_FD socket.
 
 Development
 -----------
@@ -68,4 +68,15 @@ Install
 For now crank is a source only distribution.
 Run `make install PREFIX=/path/to/target` to install it where you want. PREFIX
 targets to /usr/local if omitted.
+
+Participate
+-----------
+
+Report bugs and ideas on the github project's issue tracker.
+https://github.com/pusher/crank/issues/
+
+License
+-------
+
+MIT (c) 2014 Pusher Ltd. and contributors
 
