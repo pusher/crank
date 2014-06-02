@@ -82,7 +82,7 @@ ENVIRONMENT
 -----------
 
 `CRANK_BIND`, `CRANK_CONF`, `CRANK_CTL`, `CRANK_NAME`
-  If non-null it defines the default argument of teir corresponding flag.
+  If non-null it defines the default argument of their corresponding flag.
 
 FILES
 -----
@@ -93,8 +93,8 @@ successfully-started process. In that sense it should not belong in /etc.
 BUGS
 ----
 
-The command name should have been chosen more carefully to reflect its
-purpose.
+Report bugs and ideas on the github project's issue tracker.
+https://github.com/pusher/crank/issues/
 
 AUTHOR
 ------

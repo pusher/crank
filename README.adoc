@@ -69,8 +69,8 @@ For now crank is a source only distribution.
 Run `make install PREFIX=/path/to/target` to install it where you want. PREFIX
 targets to /usr/local if omitted.
 
-Participate
------------
+Contribute
+----------
 
 Report bugs and ideas on the github project's issue tracker.
 https://github.com/pusher/crank/issues/
