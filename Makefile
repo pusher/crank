@@ -21,10 +21,10 @@ fmt:
 clean:
 	rm -f crank crankctl
 
-crank: cmd/crank/*.go pkg/**/*.go
+crank: cmd/crank/*.go src/**/*.go
 	go build $(GOREV) $(GOFLAGS) -o $@ ./cmd/$@
 
-crankctl: cmd/crankctl/*.go pkg/**/*.go
+crankctl: cmd/crankctl/*.go src/**/*.go
 	go build $(GOREV) $(GOFLAGS) -o $@ ./cmd/$@
 
 .PHONY: all fmt clean install test

@@ -1,8 +1,8 @@
 package main
 
 import (
-	"../../pkg/crank"
-	"../../pkg/netutil"
+	"../../src/crank"
+	"../../src/netutil"
 	"flag"
 	"log"
 	"net"
