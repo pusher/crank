@@ -25,7 +25,7 @@ Global options:
   If passed, it sets the `-ctl` arguments to a `$prefix/$name.ctl` default.
 
 `-prefix` *path*
-  Sets the crank runtime directory. Defaults to `/var/run/crank`.
+  Sets the crank runtime directory. Defaults to `/var/crank`.
 
 `-ctl` *net-uri*
   Path or address of the control port. This should point to an existing unix

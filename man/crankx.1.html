@@ -2,16 +2,16 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <meta name="generator" content="md2man 2.0.4 https://github.com/sunaku/md2man" />
+  <meta name="generator" content="md2man 2.1.0 https://github.com/sunaku/md2man" />
   <title>crankx(1) &mdash; crank multi-control client</title>
   <link rel="stylesheet" href="style.css"/>
   <!--[if lt IE 9]><script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
 </head>
-<body><div class="navbar"><div class="navbar-inner"><span class="brand"><a href="index.html#man">man</a>/crankx.1</span></div></div><div class="container-fluid"><h1 id="CRANKX-1-quot-APRIL-2014-quot-Crank-quot-User-Manuals-quot">CRANKX 1 &quot;APRIL 2014&quot; Crank &quot;User Manuals&quot;</h1><h2 id="NAME">NAME</h2><p>crankx - crank multi-control client</p><h2 id="SYNOPSIS">SYNOPSIS</h2><p><code>crankx</code> <code>&lt;prefix&gt;</code> [crankctl opts]</p><h2 id="DESCRIPTION">DESCRIPTION</h2><p><code>crankx</code> multiplexes <code>crankctl</code> calls over a prefix.</p><p>The prefix is prepended with <code>/var/run/crank/</code> unless it start with a <code>.</code> or <code>/</code></p><p><code>crankx</code> will then invoke <code>crankctl</code> for each <code>$prefix-*.ctl</code> file.</p><p>Example:</p>
+<body><div class="navbar"><div class="navbar-inner"><span class="brand"><a href="index.html#man">man</a>/crankx.1</span></div></div><div class="container-fluid"><h1 id="CRANKX-1-quot-APRIL-2014-quot-Crank"><span class="md2man-title">CRANKX</span> <span class="md2man-section">1</span> <span class="md2man-date">&quot;APRIL</span> <span class="md2man-source">2014&quot;</span> <span class="md2man-manual">Crank</span><a name="CRANKX-1-quot-APRIL-2014-quot-Crank" href="#CRANKX-1-quot-APRIL-2014-quot-Crank" class="md2man-permalink"></a></h1><h2 id="NAME">NAME<a name="NAME" href="#NAME" class="md2man-permalink"></a></h2><p>crankx - crank multi-control client</p><h2 id="SYNOPSIS">SYNOPSIS<a name="SYNOPSIS" href="#SYNOPSIS" class="md2man-permalink"></a></h2><p><code>crankx</code> <code>&lt;prefix&gt;</code> [crankctl opts]</p><h2 id="DESCRIPTION">DESCRIPTION<a name="DESCRIPTION" href="#DESCRIPTION" class="md2man-permalink"></a></h2><p><code>crankx</code> multiplexes <code>crankctl</code> calls over a prefix.</p><p>The prefix is prepended with <code>/var/crank/</code> unless it start with a <code>.</code> or <code>/</code></p><p><code>crankx</code> will then invoke <code>crankctl</code> for each <code>$prefix-*.ctl</code> file.</p><p>Example:</p>
 <pre><code>crank -name api-8080 -addr :8080 &amp;
 crank -name api-8081 -addr :8081 &amp;
 # Starts api.rb on both crank processes in turn:
 crankx api run api.rb -wait
 </code></pre>
-<h2 id="SEE-ALSO">SEE ALSO</h2><p><a class="md2man-xref">crank(1)</a>, <a class="md2man-xref">crankctl(1)</a></p></div></body>
+<h2 id="SEE-ALSO">SEE ALSO<a name="SEE-ALSO" href="#SEE-ALSO" class="md2man-permalink"></a></h2><p><a class="md2man-xref">crank(1)</a>, <a class="md2man-xref">crankctl(1)</a></p></div></body>
 </html>

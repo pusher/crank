@@ -16,7 +16,7 @@ func init() {
 	neverChan = make(chan time.Time)
 }
 
-const DEFAULT_PREFIX = "/var/run/crank"
+const DEFAULT_PREFIX = "/var/crank"
 
 func Prefix(prefix string) string {
 	if prefix != "" {

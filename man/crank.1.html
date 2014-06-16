@@ -19,8 +19,8 @@ but passed onto the child process using the systemd LISTEN<em>FDS convention.
 Note that unlike systemd we don&#39;t pass the LISTEN</em>PID environment variable
 (due to a limitation in the go fork/exec model)</dd></dl><dl><dt><code>-conf</code> <em>config-file</em></dt><dd>A path where to store the last successful run command. This path needs to be
 writeable by crank and should probably be something like
-/var/run/crank/something.conf</dd></dl><dl><dt><code>-ctl</code> <em>net-uri</em></dt><dd>Path or address of the control socket. This socket exposes an rcp interface
-which is consumed by the <code>crankctl</code> command-line.</dd></dl><dl><dt><code>-prefix</code> <em>path</em></dt><dd>Sets the crank runtime directory. Defaults to <code>/var/run/crank</code>.</dd></dl><dl><dt><code>-name</code> <em>process-name</em></dt><dd>If passed, it sets the <code>-conf</code> and <code>-ctl</code> arguments to
+/var/crank/something.conf</dd></dl><dl><dt><code>-ctl</code> <em>net-uri</em></dt><dd>Path or address of the control socket. This socket exposes an rcp interface
+which is consumed by the <code>crankctl</code> command-line.</dd></dl><dl><dt><code>-prefix</code> <em>path</em></dt><dd>Sets the crank runtime directory. Defaults to <code>/var/crank</code>.</dd></dl><dl><dt><code>-name</code> <em>process-name</em></dt><dd>If passed, it sets the <code>-conf</code> and <code>-ctl</code> arguments to
 a <code>$prefix/$name.$type</code> default (unless those are also passed).</dd></dl><p><em>net-uri</em> format: an address can be of the following forms:</p>
 <ul>
 <li><code>&lt;path&gt;</code> (no : character allowed)</li>

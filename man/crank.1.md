@@ -41,14 +41,14 @@ Note that valid addr, conf and sock values are necessary for crank to run.
 `-conf` *config-file*
   A path where to store the last successful run command. This path needs to be
   writeable by crank and should probably be something like
-  /var/run/crank/something.conf
+  /var/crank/something.conf
 
 `-ctl` *net-uri*
   Path or address of the control socket. This socket exposes an rcp interface
   which is consumed by the `crankctl` command-line.
 
 `-prefix` *path*
-  Sets the crank runtime directory. Defaults to `/var/run/crank`.
+  Sets the crank runtime directory. Defaults to `/var/crank`.
 
 `-name` *process-name*
   If passed, it sets the `-conf` and `-ctl` arguments to

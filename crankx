@@ -21,7 +21,7 @@ if [ "$prefix" = "-h" ] || [ "$prefix" = "--help" ]; then
 fi
 
 if ! echo "$prefix" | grep -q '^[/.]' ; then
-  prefix="/var/run/crank/$prefix"
+  prefix="/var/crank/$prefix"
 fi
 
 for ctl in $(ls $prefix*.ctl | sort) ; do
