@@ -1,4 +1,13 @@
 
+0.1.4 / 2014-06-16
+==================
+
+ * Change the var dir from /var/run/crank to /var/crank
+ * Renames the pkg/ folder to src/
+ * docs
+ * README updates
+ * Remove the .ctl socket on exit. Fixes #28
+
 0.1.3 / 2014-05-29
 ==================
 
