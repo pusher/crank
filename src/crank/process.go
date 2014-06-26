@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func startProcess(id int, config *ProcessConfig, bindSocket *os.File, events chan<- Event) (p *Process, err error) {
+func startProcess(id int, name string, config *ProcessConfig, bindSocket *os.File, events chan<- Event) (p *Process, err error) {
 	var (
 		stdin        *os.File
 		notifySocket *os.File
@@ -48,6 +48,9 @@ func startProcess(id int, config *ProcessConfig, bindSocket *os.File, events cha
 	env := os.Environ()
 	env = append(env, "LISTEN_FDS=1")
 	env = append(env, "NOTIFY_FD=4")
+	if name != "" {
+		env = append(env, "CRANK_NAME="+name)
+	}
 
 	procAttr := os.ProcAttr{
 		Dir: config.Cwd,

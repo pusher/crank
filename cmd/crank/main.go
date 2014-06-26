@@ -74,7 +74,7 @@ func main() {
 	rpcFile.Close()
 	rpcListener = netutil.UnlinkListener(rpcListener)
 
-	manager := crank.NewManager(build, conf, socket)
+	manager := crank.NewManager(build, name, conf, socket)
 	go onSignal(manager.Reload, syscall.SIGHUP)
 	go onSignal(manager.Shutdown, syscall.SIGTERM, syscall.SIGINT)
 

@@ -11,6 +11,7 @@ import (
 // Manager manages multiple process groups
 type Manager struct {
 	build           string
+	name            string
 	configPath      string
 	config          *ProcessConfig
 	socket          *os.File
@@ -25,7 +26,7 @@ type Manager struct {
 	startingDone    chan<- error
 }
 
-func NewManager(build string, configPath string, socket *os.File) *Manager {
+func NewManager(build string, name string, configPath string, socket *os.File) *Manager {
 	config, err := loadProcessConfig(configPath)
 	if err != nil {
 		log.Println("Could not load config file: ", err)
@@ -33,6 +34,7 @@ func NewManager(build string, configPath string, socket *os.File) *Manager {
 
 	manager := &Manager{
 		build:           build,
+		name:            name,
 		configPath:      configPath,
 		config:          config,
 		socket:          socket,
@@ -336,7 +338,7 @@ func (self *Manager) startProcess(config *ProcessConfig) error {
 	}
 
 	self.processCount += 1
-	process, err := startProcess(self.processCount, config, self.socket, self.events)
+	process, err := startProcess(self.processCount, self.name, config, self.socket, self.events)
 	if err != nil {
 		return err
 	}
