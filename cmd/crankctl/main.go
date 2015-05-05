@@ -1,10 +1,10 @@
 package main
 
 import (
-	"../../src/crank"
-	"../../src/netutil"
 	"flag"
 	"fmt"
+	"github.com/pusher/crank/src/crank"
+	"github.com/pusher/crank/src/netutil"
 	"net/rpc"
 	"os"
 )

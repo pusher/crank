@@ -1,9 +1,9 @@
 package main
 
 import (
-	"../../src/crank"
-	"../../src/netutil"
 	"flag"
+	"github.com/pusher/crank/src/crank"
+	"github.com/pusher/crank/src/netutil"
 	"log"
 	"net"
 	"os"

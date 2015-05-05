@@ -1,8 +1,8 @@
 package crank
 
 import (
-	"../devnull"
 	"fmt"
+	"github.com/pusher/crank/src/devnull"
 	"os"
 	"os/exec"
 	"syscall"
