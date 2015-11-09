@@ -26,8 +26,8 @@ func BindURI(uri string) (file *os.File, err error) {
 		}
 		// The file name is arbitrary, here we use the uri
 		file = os.NewFile(uintptr(fd), uri)
-	case "unix", "unixpacket":
-		var listener net.Listener
+		return
+	case "unix", "unixpacket", "unixgram":
 		// In case a previous process didn't cleanup the socket properly.
 		// We prefer of running the risk of having two processes than not being
 		// able to bind. But only if the file is a socket.
@@ -36,26 +36,26 @@ func BindURI(uri string) (file *os.File, err error) {
 				os.Remove(addr)
 			}
 		}
+	}
 
-		if listener, err = net.Listen(network, addr); err != nil {
-			return
-		}
-
-		file, err = listener.(*net.UnixListener).File()
-	case "tcp", "tcp4", "tcp6":
+	switch network {
+	case "tcp", "tcp4", "tcp6", "unix", "unixpacket":
 		var listener net.Listener
-
 		if listener, err = net.Listen(network, addr); err != nil {
 			return
 		}
-
 		// Closing the listener doesn't affect the file and reversely.
 		// http://golang.org/pkg/net/#TCPListener.File
-		file, err = listener.(*net.TCPListener).File()
+		file, err = listener.(filer).File()
+	case "udp", "udp4", "udp6", "unixgram":
+		var packetconn net.PacketConn
+		if packetconn, err = net.ListenPacket(network, addr); err != nil {
+			return
+		}
+		file, err = packetconn.(filer).File()
 	default:
 		err = fmt.Errorf("Unsupported network: %s", network)
 	}
-
 	return
 }
 
@@ -93,3 +93,13 @@ func uriToAddr(uri string) (network, address string, err error) {
 	}
 	return
 }
+
+// Internal interface implemented by net.TCPListener and net.UDPListener
+type filer interface {
+	File() (*os.File, error)
+}
+
+var (
+	_ filer = (*net.TCPListener)(nil)
+	_ filer = (*net.UDPConn)(nil)
+)
