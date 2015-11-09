@@ -60,6 +60,7 @@ Note that valid addr, conf and sock values are necessary for crank to run.
 * `[host]:<port>`
 * `fd://<fd_num>`
 * `tcp[46]://[host]:<port>`
+* `udp[46]://[host]:<port>`
 * `unix[packet]://<path>`
 
 PROCESS SIDE
