@@ -3,14 +3,21 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/pusher/crank/src/crank"
-	"github.com/pusher/crank/src/netutil"
 	"net/rpc"
 	"os"
+
+	"github.com/pusher/crank/src/crank"
+	"github.com/pusher/crank/src/netutil"
 )
 
 type Command func(*rpc.Client) error
 type CommandSetup func(*flag.FlagSet) Command
+
+type ExitError int
+
+func (e ExitError) Error() string {
+	return fmt.Sprintf("exited with %d", e)
+}
 
 var (
 	commands map[string]CommandSetup
@@ -131,7 +138,7 @@ func Run(flag *flag.FlagSet) Command {
 		}
 		if reply.Code > 0 {
 			fmt.Println("Exited with code:", reply.Code)
-			return
+			return ExitError(reply.Code)
 		}
 
 		fmt.Println("Started successfully")
