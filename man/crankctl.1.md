@@ -76,8 +76,8 @@ processes are listed.
 `-ready`
   Selects all ready processes (should only be one)
 
-`-stoppping`
-  Selects all stoppping processes.
+`-stopping`
+  Selects all stopping processes.
 
 `-pid PID`
   Selects a specific PID from the exisiting set. This flag is a AND filter
@@ -98,8 +98,8 @@ are signaled.
 `-ready`
   Selects all ready processes (should only be one)
 
-`-stoppping`
-  Selects all stoppping processes.
+`-stopping`
+  Selects all stopping processes.
 
 `-pid PID`
   Selects a specific PID from the exisiting set. This flag is a AND filter
