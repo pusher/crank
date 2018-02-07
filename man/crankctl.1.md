@@ -14,7 +14,7 @@ SYNOPSIS
 DESCRIPTION
 -----------
 
-`crankctl` allows to send commands to `crank` trough it's control port.
+`crankctl` allows to send commands to `crank` through its control port.
 
 OPTIONS
 -------
