@@ -1,0 +1,25 @@
+#! /bin/bash -e
+
+TARGET=$1
+
+if [[ -z $TARGET ]]; then
+    echo "No target set!"
+    exit 1
+fi
+
+GOSRC=/go/src/github.com/pusher/crank
+
+mkdir -p $GOSRC
+cp -R cmd man src crankx Makefile $GOSRC
+cd $GOSRC
+make install PREFIX=$TARGET
+
+mkdir -p $TARGET/.packager/bin
+mkdir -p $TARGET/.packager/man
+
+ln -s ../../bin/crank $TARGET/.packager/bin/crank
+ln -s ../../bin/crankctl $TARGET/.packager/bin/crankctl
+ln -s ../../bin/crankx $TARGET/.packager/bin/crankx
+ln -s ../../share/man/man1/crank.1 $TARGET/.packager/man/crank.1
+ln -s ../../share/man/man1/crankctl.1 $TARGET/.packager/man/crankctl.1
+ln -s ../../share/man/man1/crankx.1 $TARGET/.packager/man/crankx.1

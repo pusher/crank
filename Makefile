@@ -1,5 +1,5 @@
 GOFLAGS=
-GOREV:=-ldflags "-X main.build \"SHA: $(shell git rev-parse HEAD) (Built $(shell date) with $(shell go version))\""
+GOREV:=-ldflags "-X 'main.build=SHA: $(shell git rev-parse HEAD) (Built $(shell date) with $(shell go version))'"
 PREFIX=/usr/local
 
 all: fmt test crank crankctl

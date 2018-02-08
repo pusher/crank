@@ -1,0 +1,10 @@
+#!/bin/sh -e
+cd "$(dirname "$0")/.."
+
+GOSRC=/go/src/github.com/pusher/crank
+
+mkdir -p $GOSRC
+cp -R cmd src Makefile $GOSRC
+cd $GOSRC
+make
+
