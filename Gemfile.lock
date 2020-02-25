@@ -7,7 +7,7 @@ GEM
       binman (~> 3.0)
       redcarpet (~> 3.0)
     opener (0.1.0)
-    rake (10.3.1)
+    rake (13.0.1)
     redcarpet (3.1.2)
 
 PLATFORMS
@@ -15,4 +15,7 @@ PLATFORMS
 
 DEPENDENCIES
   md2man
-  rake
+  rake (>= 12.3.3)
+
+BUNDLED WITH
+   1.17.3
