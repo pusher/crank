@@ -8,7 +8,7 @@ GEM
       redcarpet (~> 3.0)
     opener (0.1.0)
     rake (10.3.1)
-    redcarpet (3.1.2)
+    redcarpet (3.6.0)
 
 PLATFORMS
   ruby
